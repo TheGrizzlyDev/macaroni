@@ -1,0 +1,12 @@
+[package]
+name = "libsystem"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+
+[dependencies]
+ctor = "0.2.9"
+libc = "0.2.168"
