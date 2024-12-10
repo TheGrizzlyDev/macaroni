@@ -1,6 +1,7 @@
-use std::{ffi::{c_char, c_void, CStr}, sync::LazyLock};
+use std::{ffi::{c_char, c_void, CStr}, ptr, sync::LazyLock};
 
 use ctor::ctor;
+use libc::backtrace;
 
 #[repr(C)]
 struct InterposeEntry {
@@ -18,10 +19,19 @@ static INTERPOSE_GETCWD: InterposeEntry = InterposeEntry {
 };
 
 #[no_mangle]
-#[link_section = "__DATA,macaroni"]
-pub extern "C" fn get_cwd(buf: *mut u8, _size: usize) -> *mut u8 {
-    println!("getcwd");
-    buf
+#[link_section = "__TEXT,__macaroni"]
+pub extern "C" fn get_cwd(buf: *mut u8, size: usize) -> *mut u8 {
+    if is_caller_from_macaroni_libsystem() {
+        println!("self call");
+
+        unsafe {
+            ptr::copy_nonoverlapping(b"BLA\0".as_ptr(), buf, size);
+        }
+
+        return buf;
+    }
+    
+    get_cwd(buf, size)
 }
 
 extern "C" {
@@ -58,7 +68,7 @@ static LIBMACARONI_SYSTEM_INFO: LazyLock<SegmentInfo> = LazyLock::new(|| {
             }
         }
 
-        let segment_name = CStr::from_bytes_with_nul(b"__DATA\0").unwrap();
+        let segment_name = CStr::from_bytes_with_nul(b"__TEXT\0").unwrap();
         let mut size: u64 = 0;
 
         let segment_address = unsafe {
@@ -76,20 +86,58 @@ static LIBMACARONI_SYSTEM_INFO: LazyLock<SegmentInfo> = LazyLock::new(|| {
     panic!("libmacaroni_system has not been loaded properly");
 });
 
-fn is_part_of_macaroni_libsystem<Addr: Into<usize>>(address: Addr) -> bool {
+fn is_address_part_of_macaroni_libsystem<Addr: Into<usize>>(address: Addr) -> bool {
     let addr: usize = address.into();
     addr >= LIBMACARONI_SYSTEM_INFO.start_address && addr <= LIBMACARONI_SYSTEM_INFO.end_address
+}
+
+fn is_caller_from_macaroni_libsystem() -> bool {
+    const INITIAL_FRAMES: usize = 128;
+    const EXPANSION_FACTOR: usize = 2;
+
+    let mut max_frames = INITIAL_FRAMES;
+    let mut buffer: Vec<*mut libc::c_void> = vec![ptr::null_mut(); max_frames];
+
+    unsafe {
+        loop {
+            // Capture the backtrace
+            let frame_count = backtrace(buffer.as_mut_ptr(), max_frames as libc::c_int);
+
+            // Iterate through the frames to check addresses
+            // skip this function and caller function
+            for i in 0..frame_count as usize {
+                let addr = buffer[i];
+                if addr.is_null() {
+                    continue;
+                }
+
+                if is_address_part_of_macaroni_libsystem(addr as usize) {
+                    return true; // Found a match, exit immediately
+                }
+            }
+
+            // If all frames are processed without a match and the buffer is full, expand it
+            if frame_count as usize >= max_frames {
+                max_frames *= EXPANSION_FACTOR;
+                buffer.resize(max_frames, ptr::null_mut());
+            } else {
+                break; // No need to expand further; all frames processed
+            }
+        }
+    }
+
+    false // No address matched
 }
 
 #[ctor]
 fn init() {
     println!("getcwd addr = {:#x}", (get_cwd as *const ()) as usize);
-    if is_part_of_macaroni_libsystem(get_cwd as usize) {
+    if is_address_part_of_macaroni_libsystem(get_cwd as usize) {
         println!("custom getcwd is part of macaroni");
     } else {
         println!("custom getcwd is not part of macaroni");
     }
-    if is_part_of_macaroni_libsystem(libc::getcwd as usize) {
+    if is_address_part_of_macaroni_libsystem(libc::getcwd as usize) {
         println!("OS getcwd is part of macaroni");
     } else {
         println!("OS getcwd is not part of macaroni");
