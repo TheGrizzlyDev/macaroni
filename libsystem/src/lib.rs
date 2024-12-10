@@ -20,17 +20,16 @@ static INTERPOSE_GETCWD: InterposeEntry = InterposeEntry {
 
 #[no_mangle]
 #[link_section = "__TEXT,__macaroni"]
-pub extern "C" fn get_cwd(buf: *mut u8, size: usize) -> *mut u8 {
+pub extern "C" fn get_cwd(buf: *mut i8, size: usize) -> *mut i8 {
     if is_caller_from_macaroni_libsystem() {
         println!("self call");
 
         unsafe {
-            ptr::copy_nonoverlapping(b"BLA\0".as_ptr(), buf, size);
+            return libc::getcwd(buf, size);
         }
-
-        return buf;
     }
     
+    println!("external call");
     get_cwd(buf, size)
 }
 
@@ -105,7 +104,7 @@ fn is_caller_from_macaroni_libsystem() -> bool {
 
             // Iterate through the frames to check addresses
             // skip this function and caller function
-            for i in 0..frame_count as usize {
+            for i in 2..frame_count as usize {
                 let addr = buffer[i];
                 if addr.is_null() {
                     continue;
