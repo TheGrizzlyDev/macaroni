@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package management;
+
+message CreateRequest {}
+message CreateResponse {
+    string uuid = 1;
+}
+
+message DestroyRequest {
+    string uuid = 1;
+}
+
+message DestroyResponse {}
+
+message RunCommandRequest {
+    repeated string args = 1;
+}
+
+message RunCommandResponse {}
+
+service Sandbox {
+    rpc Create(CreateRequest) returns (CreateResponse);
+    rpc Destroy(DestroyRequest) returns (DestroyResponse);
+    rpc RunCommand(RunCommandRequest) returns (RunCommandResponse);
+}
