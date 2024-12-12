@@ -1,8 +1,7 @@
-pub mod generated {
-    pub mod management {
-        include!("generated/management.rs");
-    }
-    pub mod sandbox {
-        include!("generated/sandbox.rs");
-    }
+pub const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("management_descriptor");
+pub mod management {
+    tonic::include_proto!("management");
+}
+pub mod sandbox {
+    tonic::include_proto!("sandbox");
 }

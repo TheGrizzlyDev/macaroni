@@ -2,7 +2,24 @@ syntax = "proto3";
 
 package management;
 
-message CreateRequest {}
+message Mount {
+    message ForwardMount {
+        string source_path = 1;
+    }
+
+    string destination_path = 1;
+
+    reserved 2 to 50;
+
+    oneof mount {
+        ForwardMount forward = 51;
+    }
+}
+
+message CreateRequest {
+    repeated Mount mounts = 2;
+}
+
 message CreateResponse {
     string uuid = 1;
 }
@@ -14,12 +31,19 @@ message DestroyRequest {
 message DestroyResponse {}
 
 message RunCommandRequest {
-    repeated string args = 1;
+    string uuid = 1;
+    repeated string args = 2;
+    map<string, string> env = 3;
+    string work_path = 4;
 }
 
-message RunCommandResponse {}
+message RunCommandResponse {
+    int64 exit_code = 1;
+    string stdout = 2;
+    string stderr = 3;
+}
 
-service Sandbox {
+service SandboxControl {
     rpc Create(CreateRequest) returns (CreateResponse);
     rpc Destroy(DestroyRequest) returns (DestroyResponse);
     rpc RunCommand(RunCommandRequest) returns (RunCommandResponse);
