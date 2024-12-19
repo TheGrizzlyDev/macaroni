@@ -1,6 +1,12 @@
-[workspace]
+[package]
+name = "libsystem"
+version = "0.1.0"
+edition = "2021"
 
-resolver = "2"
-members = [
-    "libsystem", "macaronid", "macarun", "proto",
-]
+[lib]
+crate-type = ["cdylib"]
+name = "macaroni_system"
+
+[dependencies]
+ctor = "0.2.9"
+libc = "0.2.168"
