@@ -8,5 +8,6 @@ crate-type = ["cdylib"]
 name = "macaroni_system"
 
 [dependencies]
+bitflags = "2.6.0"
 ctor = "0.2.9"
 libc = "0.2.168"
