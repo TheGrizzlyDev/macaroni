@@ -90,6 +90,12 @@ fn is_address_part_of_macaroni_libsystem<Addr: Into<usize>>(address: Addr) -> bo
     addr >= LIBMACARONI_SYSTEM_INFO.start_address && addr <= LIBMACARONI_SYSTEM_INFO.end_address
 }
 
+/*
+TODO:
+this is useful to avoid reimplementing high-level APIs to use our replacements
+for libSystem functionalities. At some point though we could skip this backtrace
+check and just call the correct underlying functions instead.
+*/
 fn is_caller_from_macaroni_libsystem() -> bool {
     const INITIAL_FRAMES: usize = 128;
     const EXPANSION_FACTOR: usize = 2;
