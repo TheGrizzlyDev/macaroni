@@ -11,12 +11,37 @@ struct InterposeEntry {
 
 unsafe impl Sync for InterposeEntry {}
 
-#[used]
-#[link_section = "__DATA,__interpose"]
-static INTERPOSE_GETCWD: InterposeEntry = InterposeEntry {
-    replacement: get_cwd as *const (),
-    original: libc::getcwd as *const (),
-};
+macro_rules! interposition_table {
+    // Entry point: match one or more pairs of `(replacement, original)` separated by semicolons,
+    // optionally allowing a trailing semicolon.
+    ($($replacement:path , $original:path);+ $(;)?) => {
+        interposition_table!(@gen [$($replacement , $original);+]);
+    };
+
+    // Generate the static `INTERPOSED_FUNCTIONS` definition.
+    (@gen [$($replacement:path , $original:path);+]) => {
+        #[used]
+        #[link_section = "__DATA,__interpose"]
+        static INTERPOSED_FUNCTIONS: [InterposeEntry; interposition_table!(@count $($replacement , $original),*)] = [
+            $(
+                InterposeEntry {
+                    replacement: $replacement as *const (),
+                    original: $original as *const (),
+                },
+            )*
+        ];
+    };
+
+    // Count how many `(replacement, original)` pairs there are, by expanding each pair to `()`.
+    // The length of that slice is our array size.
+    (@count $($replacement:path , $original:path),*) => {
+        <[()]>::len(&[$({ let _ = $replacement; let _ = $original; () }),*])
+    };
+}
+
+interposition_table!(
+    get_cwd, libc::getcwd;
+);
 
 #[no_mangle]
 #[link_section = "__TEXT,__macaroni"]
