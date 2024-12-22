@@ -102,25 +102,25 @@ pub fn interpose(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #[link_section = "__TEXT,__macaroni"]
             #[allow(non_snake_case)]
             #fn_vis fn replacement #fn_generics (#fn_inputs) -> #inner_ret_ty {
-                let inner = || -> crate::LibcResult<#inner_ret_ty> {
+                let inner = || -> LibcResult<#inner_ret_ty> {
                     #fn_block
                 };
 
                 match inner() {
-                    crate::LibcResult::Ok(value) => value,
-                    crate::LibcResult::Err(errno_val) => {
+                    LibcResult::Ok(value) => value,
+                    LibcResult::Err(errno_val) => {
                         unsafe {
                             *libc::__error() = errno_val;
                         }
                         unsafe { mem::zeroed() }
                     },
-                    crate::LibcResult::ErrAndReturn(value, errno_val) => {
+                    LibcResult::ErrAndReturn(value, errno_val) => {
                         unsafe {
                             *libc::__error() = errno_val;
                         }
                         value
                     },
-                    crate::LibcResult::ReturnErr(errno_val) => {
+                    LibcResult::ReturnErr(errno_val) => {
                         unsafe {
                             *libc::__error() = errno_val;
                         }
