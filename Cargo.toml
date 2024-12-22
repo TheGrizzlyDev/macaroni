@@ -1,13 +1,17 @@
-[package]
-name = "libsystem"
-version = "0.1.0"
+[workspace]
+members = [
+    "libc_interposition_lib",
+    "libc_interposition_macro",
+    "libmacaroni"
+]
+
+[workspace.package]
 edition = "2021"
 
-[lib]
-crate-type = ["cdylib"]
-name = "macaroni_system"
-
-[dependencies]
+[workspace.dependencies]
+syn = "2"
+quote = "1"
+proc-macro2 = "1"
+libc = "0.2"
 bitflags = "2.6.0"
 ctor = "0.2.9"
-libc = "0.2.168"
