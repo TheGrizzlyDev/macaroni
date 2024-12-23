@@ -1,5 +1,3 @@
-#![feature(trait_alias)]
-
 use std::{env, fs, path::PathBuf};
 
 use ctor::ctor;
