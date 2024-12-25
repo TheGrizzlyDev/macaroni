@@ -1,41 +1,22 @@
+#![feature(c_size_t)]
+
 use std::{env, fs, path::PathBuf};
 
 use ctor::ctor;
 use libc_interposition_lib::InterposeEntry;
 
 mod cwd;
-mod vfs;
+mod config;
+mod open_close;
+mod read_write;
+mod permissions;
+mod directory;
 
 #[used]
 #[link_section = "__DATA,__interpose"]
 static INTERPOSE_TABLE: [InterposeEntry; 1] = [
     cwd::getcwd::INTERPOSE_ENTRY,
 ];
-
-mod config {
-    use serde_derive::{Deserialize, Serialize};
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(tag = "type", rename_all = "snake_case")]
-    enum MountOptions {
-        Remap {
-            host_path: String,
-        }
-    }
-    
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    struct MountPoint {
-        destination_path: String,
-
-        #[serde(flatten)]
-        options: MountOptions,
-    }
-    
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct Config {
-        mounts: Vec<MountPoint>
-    }
-}
 
 #[ctor]
 fn init() {
