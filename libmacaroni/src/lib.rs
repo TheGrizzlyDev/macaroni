@@ -1,16 +1,13 @@
 #![feature(c_size_t)]
 
-use std::{env, fs, path::PathBuf};
-
-use ctor::ctor;
 use libc_interposition_lib::InterposeEntry;
-
 mod config;
 mod filesystem;
+mod exec;
 
 #[used]
 #[link_section = "__DATA,__interpose"]
-static INTERPOSE_TABLE: [InterposeEntry; 52] = [
+static INTERPOSE_TABLE: [InterposeEntry; 61] = [
     filesystem::open::INTERPOSE_ENTRY,
     filesystem::openat::INTERPOSE_ENTRY,
     filesystem::creat::INTERPOSE_ENTRY,
@@ -63,27 +60,13 @@ static INTERPOSE_TABLE: [InterposeEntry; 52] = [
     filesystem::open_dprotected_np::INTERPOSE_ENTRY,
     filesystem::searchfs::INTERPOSE_ENTRY,
     filesystem::fsctl::INTERPOSE_ENTRY,
+    exec::execlp::INTERPOSE_ENTRY,
+    exec::execv::INTERPOSE_ENTRY,
+    exec::execve::INTERPOSE_ENTRY,
+    exec::execvp::INTERPOSE_ENTRY,
+    exec::execvpe::INTERPOSE_ENTRY,
+    exec::popen::INTERPOSE_ENTRY,
+    exec::posix_spawn::INTERPOSE_ENTRY,
+    exec::posix_spawnp::INTERPOSE_ENTRY,
+    exec::system::INTERPOSE_ENTRY,
 ];
-
-#[ctor]
-fn init() {
-    let sandbox_path = match env::var("MACARONI_SANDBOX_PATH") {
-        Ok(path_str) => {
-            PathBuf::from(path_str)
-        }
-        Err(e) => {
-            panic!("MACARONI_SANDBOX_PATH not set or invalid: {}", e)
-        }
-    };
-
-    println!("Sandbox path is: {:?}", sandbox_path);
-
-    let mut config_path = sandbox_path.clone();
-    config_path.push("config.json");
-
-    let config_raw = fs::read_to_string(config_path).unwrap();
-    let config: config::Config = serde_json::from_str(&config_raw).unwrap();
-
-    println!("Config is: {:?}", config);
-
-}

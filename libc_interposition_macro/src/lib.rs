@@ -89,16 +89,16 @@ pub fn interpose(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let generated = quote! {
         pub mod #fn_name {
             use libc;
-            use std::mem;
+            use core::mem;
             use super::*;
-            use libc_interposition_lib::InterposeEntry;
+            use libc_interposition_lib::{InterposeEntry, LibcResult};
 
             extern "C" {
                 #[link_name = #link_name]
                 pub fn original #fn_generics (#fn_inputs) -> #inner_ret_ty;
             }
 
-            #[no_mangle]
+            #[unsafe(export_name = #link_name)]
             #[link_section = "__TEXT,__macaroni"]
             #[allow(non_snake_case)]
             #fn_vis fn replacement #fn_generics (#fn_inputs) -> #inner_ret_ty {
