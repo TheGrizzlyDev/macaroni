@@ -2,6 +2,7 @@
 
 use libc_interposition_lib::InterposeEntry;
 mod config;
+mod path_remapper;
 mod filesystem;
 mod exec;
 

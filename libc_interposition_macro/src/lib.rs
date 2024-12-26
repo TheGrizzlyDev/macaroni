@@ -91,7 +91,7 @@ pub fn interpose(_attr: TokenStream, item: TokenStream) -> TokenStream {
             use libc;
             use core::mem;
             use super::*;
-            use libc_interposition_lib::{InterposeEntry, LibcResult};
+            use libc_interposition_lib::{InterposeEntry as _InternalInterposeEntry, LibcResult as _InternalLibcResult};
 
             extern "C" {
                 #[link_name = #link_name]
@@ -102,25 +102,25 @@ pub fn interpose(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #[link_section = "__TEXT,__macaroni"]
             #[allow(non_snake_case)]
             #fn_vis fn replacement #fn_generics (#fn_inputs) -> #inner_ret_ty {
-                let inner = || -> LibcResult<#inner_ret_ty> {
+                let inner = || -> _InternalLibcResult<#inner_ret_ty> {
                     #fn_block
                 };
 
                 match inner() {
-                    LibcResult::Ok(value) => value,
-                    LibcResult::Err(errno_val) => {
+                    _InternalLibcResult::Ok(value) => value,
+                    _InternalLibcResult::Err(errno_val) => {
                         unsafe {
                             *libc::__error() = errno_val;
                         }
                         unsafe { mem::zeroed() }
                     },
-                    LibcResult::ErrAndReturn(value, errno_val) => {
+                    _InternalLibcResult::ErrAndReturn(value, errno_val) => {
                         unsafe {
                             *libc::__error() = errno_val;
                         }
                         value
                     },
-                    LibcResult::ReturnErr(errno_val) => {
+                    _InternalLibcResult::ReturnErr(errno_val) => {
                         unsafe {
                             *libc::__error() = errno_val;
                         }
@@ -129,7 +129,7 @@ pub fn interpose(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            pub static INTERPOSE_ENTRY: InterposeEntry = InterposeEntry {
+            pub static INTERPOSE_ENTRY: _InternalInterposeEntry = _InternalInterposeEntry {
                 replacement: replacement as *const (),
                 original: original as *const (),
             };
