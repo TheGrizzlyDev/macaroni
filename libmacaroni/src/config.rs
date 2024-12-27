@@ -1,4 +1,5 @@
-use std::{env, ffi::{c_char, c_void, CStr}, path::PathBuf, sync::LazyLock};
+use std::{env, ffi::{c_char, c_void, CStr}, fs, path::PathBuf, sync::LazyLock};
+use serde_derive::{Deserialize, Serialize};
 
 extern "C" {
     fn _dyld_get_image_header(image_index: u32) -> *const c_void;
@@ -29,30 +30,37 @@ pub static LIBMACARONI_SYSTEM_PATH: LazyLock<String> = LazyLock::new(|| {
     panic!("libmacaroni_system has not been loaded properly");
 });
 
-
-#[derive(Clone, Debug)]
-pub(crate) struct RemapPoint {
-    from: String,
-    to:   String,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum MountOptions {
+    Remap { host_path: String },
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MountPoint {
+    pub destination_path: String,
+    #[serde(flatten)]
+    pub options: MountOptions,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    pub mounts: Vec<MountPoint>,
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct RemapConfig {
-    points: Vec<RemapPoint>,
-}
+pub static LIBMACARONI_CONFIG: LazyLock<Config> = LazyLock::new(|| {
+    let sandbox_path = match env::var("MACARONI_SANDBOX_PATH") {
+        Ok(path_str) => {
+            PathBuf::from(path_str)
+        }
+        Err(e) => {
+            panic!("MACARONI_SANDBOX_PATH not set or invalid: {}", e)
+        }
+    };
 
-pub static REMAP_CONFIG: LazyLock<RemapConfig> = LazyLock::new(|| {
-    let remap_config_str = env::var("MACARONI_REMAP_CONFIG").expect("You must set the env variable MACARONI_REMAP_CONFIG");
-    let points: Vec<RemapPoint> = remap_config_str
-        .split(';')
-        .into_iter()
-        .map(|map_point_str| -> RemapPoint {
-            let (from, to) = map_point_str
-                .split_once('=')
-                .expect("TODO: write a useful error message");
-            RemapPoint { from: from.to_owned(), to: to.to_owned() }
-        })
-        .collect();
+    let mut config_path = sandbox_path.clone();
+    config_path.push("config.json");
 
-    RemapConfig { points }
+    let config_raw = fs::read_to_string(config_path).unwrap();
+    let config: Config = serde_json::from_str(&config_raw).unwrap();
+
+    config
 });
