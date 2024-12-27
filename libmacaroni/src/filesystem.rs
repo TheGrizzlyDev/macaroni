@@ -2,11 +2,17 @@ use core::ffi::{c_char, c_int, c_long, c_size_t, c_uint, c_void};
 use libc_interposition_macro::interpose;
 use libc_interposition_lib::LibcResult;
 use libc;
+use crate::path_remapper;
 
 /// See: man 2 open
 #[interpose]
 pub fn open(path: *const c_char, oflag: c_int, mode: c_int) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path);
+    let fd = unsafe { nix::libc::open(remapped_path, oflag, mode) };
+    if fd == -1 {
+        return LibcResult::last_error_and_return(fd);
+    }
+    LibcResult::Ok(fd)
 }
 
 /// See: man 2 openat  
