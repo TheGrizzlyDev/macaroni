@@ -1,5 +1,6 @@
 #![feature(c_size_t)]
 
+use ctor::ctor;
 use libc_interposition_lib::InterposeEntry;
 mod config;
 mod path_remapper;
@@ -8,7 +9,7 @@ mod exec;
 
 #[used]
 #[link_section = "__DATA,__interpose"]
-static INTERPOSE_TABLE: [InterposeEntry; 61] = [
+static INTERPOSE_TABLE: [InterposeEntry; 56] = [
     filesystem::open::INTERPOSE_ENTRY,
     filesystem::openat::INTERPOSE_ENTRY,
     filesystem::creat::INTERPOSE_ENTRY,
@@ -39,13 +40,9 @@ static INTERPOSE_TABLE: [InterposeEntry; 61] = [
     filesystem::renameat::INTERPOSE_ENTRY,
     filesystem::remove::INTERPOSE_ENTRY,
     filesystem::listxattr::INTERPOSE_ENTRY,
-    filesystem::llistxattr::INTERPOSE_ENTRY,
     filesystem::getxattr::INTERPOSE_ENTRY,
-    filesystem::lgetxattr::INTERPOSE_ENTRY,
     filesystem::setxattr::INTERPOSE_ENTRY,
-    filesystem::lsetxattr::INTERPOSE_ENTRY,
     filesystem::removexattr::INTERPOSE_ENTRY,
-    filesystem::lremovexattr::INTERPOSE_ENTRY,
     filesystem::access::INTERPOSE_ENTRY,
     filesystem::faccessat::INTERPOSE_ENTRY,
     filesystem::chdir::INTERPOSE_ENTRY,
@@ -65,9 +62,13 @@ static INTERPOSE_TABLE: [InterposeEntry; 61] = [
     exec::execv::INTERPOSE_ENTRY,
     exec::execve::INTERPOSE_ENTRY,
     exec::execvp::INTERPOSE_ENTRY,
-    exec::execvpe::INTERPOSE_ENTRY,
     exec::popen::INTERPOSE_ENTRY,
     exec::posix_spawn::INTERPOSE_ENTRY,
     exec::posix_spawnp::INTERPOSE_ENTRY,
     exec::system::INTERPOSE_ENTRY,
 ];
+
+#[ctor]
+fn init() {
+    println!("libmacaroni loaded");
+}

@@ -38,6 +38,7 @@ pub fn interpose(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let link_name = format!("{fn_name}");
+    let export_fn_name = format!("{fn_name}_macaroni_replacement");
 
     let inner_ret_ty: Type = match &**ret_ty {
         Type::Path(TypePath { path, .. }) => {
@@ -91,42 +92,38 @@ pub fn interpose(_attr: TokenStream, item: TokenStream) -> TokenStream {
             use libc;
             use core::mem;
             use super::*;
-            use libc_interposition_lib::{InterposeEntry as _InternalInterposeEntry, LibcResult as _InternalLibcResult};
+            use libc_interposition_lib::{
+                InterposeEntry as _InternalInterposeEntry, 
+                LibcResult as _InternalLibcResult,
+                PropagateErrno as _InternalPropagateErrno,
+            };
 
             extern "C" {
                 #[link_name = #link_name]
                 pub fn original #fn_generics (#fn_inputs) -> #inner_ret_ty;
             }
 
-            #[unsafe(export_name = #link_name)]
+            #[unsafe(export_name = #export_fn_name)]
             #[link_section = "__TEXT,__macaroni"]
             #[allow(non_snake_case)]
-            #fn_vis fn replacement #fn_generics (#fn_inputs) -> #inner_ret_ty {
+            #fn_vis extern "C" fn replacement #fn_generics (#fn_inputs) -> #inner_ret_ty {
+                println!("called {:?}", #link_name);
                 let inner = || -> _InternalLibcResult<#inner_ret_ty> {
                     #fn_block
                 };
 
-                match inner() {
-                    _InternalLibcResult::Ok(value) => value,
-                    _InternalLibcResult::Err(errno_val) => {
-                        unsafe {
-                            *libc::__error() = errno_val;
-                        }
-                        unsafe { mem::zeroed() }
-                    },
-                    _InternalLibcResult::ErrAndReturn(value, errno_val) => {
-                        unsafe {
-                            *libc::__error() = errno_val;
-                        }
-                        value
-                    },
-                    _InternalLibcResult::ReturnErr(errno_val) => {
-                        unsafe {
-                            *libc::__error() = errno_val;
-                        }
-                        errno_val as _
+                let ret_value = inner();
+
+                if let Some(error_propagation) = ret_value.err {
+                    match error_propagation {
+                        _InternalPropagateErrno::Override(err) => {
+                            err.set();
+                        },
+                        _ => {},
                     }
                 }
+
+                ret_value.val
             }
 
             pub static INTERPOSE_ENTRY: _InternalInterposeEntry = _InternalInterposeEntry {

@@ -1,16 +1,28 @@
-use nix;
+use nix::{Error};
 
 #[derive(Debug)]
-pub enum LibcResult<T> {
-    Ok(T),
-    Err(i32),
-    ErrAndReturn(T, i32),
-    ReturnErr(i32),
+pub enum PropagateErrno {
+    Last,
+    Override(Error),
+}
+
+#[derive(Debug)]
+pub struct LibcResult<T> {
+    pub err: Option<PropagateErrno>,
+    pub val:   T,
 }
 
 impl <T> LibcResult<T> {
-    pub fn last_error_and_return(value: T) -> LibcResult<T> {
-        LibcResult::ErrAndReturn(value, nix::Error::last_raw())
+    pub fn return_value(val: T) -> LibcResult<T> {
+        Self { err: None, val }
+    }
+
+    pub fn last_error_and_return(val: T) -> LibcResult<T> {
+        Self { err: Some(PropagateErrno::Last), val }
+    }
+
+    pub fn override_error_and_return(err: Error, val: T) -> LibcResult<T> {
+        Self { err: Some(PropagateErrno::Override(err)), val }
     }
 }
 

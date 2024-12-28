@@ -13,6 +13,6 @@ bitflags = { workspace = true }
 serde = { workspace = true }
 serde_derive = { workspace = true }
 serde_json = { workspace = true }
-nix = { workspace = true, features = ["process"] }
+nix = { workspace = true, features = ["process", "fs"] }
 libc_interposition_lib = { path = "../libc_interposition_lib" }
 libc_interposition_macro = { path = "../libc_interposition_macro" }

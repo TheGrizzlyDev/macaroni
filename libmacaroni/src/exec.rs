@@ -65,16 +65,6 @@ pub fn execvp(file: *const c_char, argv: *const *const c_char) -> LibcResult<c_i
     todo!()
 }
 
-/// See: man 3 execvpe
-#[interpose]
-pub fn execvpe(
-    file: *const c_char,
-    argv: *const *const c_char,
-    envp: *const *const c_char,
-) -> LibcResult<c_int> {
-    todo!()
-}
-
 /// See: man 3 execlp
 #[interpose]
 pub fn execlp(file: *const c_char, arg0: *const c_char, ...) -> LibcResult<c_int> {
