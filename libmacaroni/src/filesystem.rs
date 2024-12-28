@@ -1,15 +1,23 @@
 use core::ffi::{c_char, c_int, c_long, c_size_t, c_uint, c_void};
-use std::{ffi::CStr, path::PathBuf};
+use std::ffi::CString;
 use libc_interposition_macro::interpose;
 use libc_interposition_lib::LibcResult;
-use libc::{self, fcntl, F_GETPATH};
 use crate::path_remapper;
+
+fn remap_at(at_fd: c_int, path: *const c_char) -> Option<CString> {
+    use libc::{self, fcntl, F_GETPATH};
+    let at_path: *mut c_char = std::ptr::null_mut();
+    unsafe {
+        _ = fcntl(at_fd, F_GETPATH, at_path); // TODO: handle error
+    }
+    path_remapper::relative_remap_c_path(at_path, path)
+}
 
 /// See: man 2 open
 #[interpose]
 pub fn open(path: *const c_char, oflag: c_int, mode: c_int) -> LibcResult<c_int> {
     let remapped_path = path_remapper::remap_c_path(path).unwrap();
-    let fd = unsafe { nix::libc::open(remapped_path.as_ptr(), oflag, mode) };
+    let fd = unsafe { original(remapped_path.as_ptr(), oflag, mode) };
     if fd == -1 {
         return LibcResult::last_error_and_return(fd);
     }
@@ -19,14 +27,19 @@ pub fn open(path: *const c_char, oflag: c_int, mode: c_int) -> LibcResult<c_int>
 /// See: man 2 openat  
 #[interpose]
 pub fn openat(fd: c_int, path: *const c_char, oflag: c_int, mode: c_int) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = remap_at(fd, path).unwrap();
+    let fd = unsafe { libc::open(remapped_path.as_ptr(), oflag, mode) };
+    if fd == -1 {
+        return LibcResult::last_error_and_return(fd);
+    }
+    LibcResult::return_value(fd)
 }
 
 /// See: man 2 creat  
 #[interpose]
 pub fn creat(path: *const c_char, mode: c_int) -> LibcResult<c_int> {
     let remapped_path = path_remapper::remap_c_path(path).unwrap();
-    let fd = unsafe { nix::libc::creat(remapped_path.as_ptr(), mode.try_into().unwrap()) };
+    let fd = unsafe { original(remapped_path.as_ptr(), mode) };
     if fd == -1 {
         return LibcResult::last_error_and_return(fd);
     }
@@ -37,7 +50,7 @@ pub fn creat(path: *const c_char, mode: c_int) -> LibcResult<c_int> {
 #[interpose]
 pub fn stat(path: *const c_char, buf: *mut libc::stat) -> LibcResult<c_int> {
     let remapped_path = path_remapper::remap_c_path(path).unwrap();
-    let ret = unsafe { nix::libc::stat(remapped_path.as_ptr(), buf) };
+    let ret = unsafe { original(remapped_path.as_ptr(), buf) };
     if ret == -1 {
         return LibcResult::last_error_and_return(ret);
     }
@@ -48,7 +61,7 @@ pub fn stat(path: *const c_char, buf: *mut libc::stat) -> LibcResult<c_int> {
 #[interpose]
 pub fn lstat(path: *const c_char, buf: *mut libc::stat) -> LibcResult<c_int> {
     let remapped_path = path_remapper::remap_c_path(path).unwrap();
-    let ret = unsafe { nix::libc::lstat(remapped_path.as_ptr(), buf) };
+    let ret = unsafe { original(remapped_path.as_ptr(), buf) };
     if ret == -1 {
         return LibcResult::last_error_and_return(ret);
     }
@@ -57,13 +70,9 @@ pub fn lstat(path: *const c_char, buf: *mut libc::stat) -> LibcResult<c_int> {
 
 /// See: man 2 fstatat  
 #[interpose]
-pub fn fstatat(fd: c_int, path: *const c_char, buf: *mut libc::stat, flag: c_int) -> LibcResult<c_int> {
-    let at_path: *mut c_char = std::ptr::null_mut();
-    unsafe {
-        _ = fcntl(fd, F_GETPATH, at_path); // TODO: handle error
-    }
-    let remapped_path = path_remapper::relative_remap_c_path(at_path, path).unwrap();
-    let ret = unsafe { nix::libc::lstat(remapped_path.as_ptr(), buf) };
+pub fn fstatat(fd: c_int, path: *const c_char, buf: *mut libc::stat) -> LibcResult<c_int> {
+    let remapped_path = remap_at(fd, path).unwrap();
+    let ret = unsafe { libc::stat(remapped_path.as_ptr(), buf) };
     if ret == -1 {
         return LibcResult::last_error_and_return(ret);
     }
@@ -74,7 +83,7 @@ pub fn fstatat(fd: c_int, path: *const c_char, buf: *mut libc::stat, flag: c_int
 #[interpose]
 pub fn chmod(path: *const c_char, mode: c_uint) -> LibcResult<c_int> {
     let remapped_path = path_remapper::remap_c_path(path).unwrap();
-    let ret = unsafe { nix::libc::chmod(remapped_path.as_ptr(), mode.try_into().unwrap()) };
+    let ret = unsafe { original(remapped_path.as_ptr(), mode) };
     if ret == -1 {
         return LibcResult::last_error_and_return(ret);
     }
@@ -85,7 +94,7 @@ pub fn chmod(path: *const c_char, mode: c_uint) -> LibcResult<c_int> {
 #[interpose]
 pub fn lchmod(path: *const c_char, mode: c_uint) -> LibcResult<c_int> {
     let remapped_path = path_remapper::remap_c_path(path).unwrap();
-    let ret = unsafe { nix::libc::chmod(remapped_path.as_ptr(), mode.try_into().unwrap()) };
+    let ret = unsafe { original(remapped_path.as_ptr(), mode) };
     if ret == -1 {
         return LibcResult::last_error_and_return(ret);
     }
@@ -94,15 +103,20 @@ pub fn lchmod(path: *const c_char, mode: c_uint) -> LibcResult<c_int> {
 
 /// See: man 2 fchmodat  
 #[interpose]
-pub fn fchmodat(fd: c_int, path: *const c_char, mode: c_uint, flag: c_int) -> LibcResult<c_int> {
-    todo!()
+pub fn fchmodat(fd: c_int, path: *const c_char, mode: c_uint) -> LibcResult<c_int> {
+    let remapped_path = remap_at(fd, path).unwrap();
+    let ret = unsafe { libc::chmod(remapped_path.as_ptr(), mode.try_into().unwrap()) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
 /// See: man 2 chown  
 #[interpose]
 pub fn chown(path: *const c_char, owner: c_uint, group: c_uint) -> LibcResult<c_int> {
     let remapped_path = path_remapper::remap_c_path(path).unwrap();
-    let ret = unsafe { nix::libc::chown(remapped_path.as_ptr(), owner, group) };
+    let ret = unsafe { original(remapped_path.as_ptr(), owner, group) };
     if ret == -1 {
         return LibcResult::last_error_and_return(ret);
     }
@@ -127,16 +141,20 @@ pub fn fchownat(
     path: *const c_char,
     owner: c_uint,
     group: c_uint,
-    flag: c_int,
 ) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = remap_at(fd, path).unwrap();
+    let ret = unsafe { libc::chown(remapped_path.as_ptr(), owner, group) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
 /// See: man 2 utimes  
 #[interpose]
 pub fn utimes(path: *const c_char, times: *const c_void) -> LibcResult<c_int> {
     let remapped_path = path_remapper::remap_c_path(path).unwrap();
-    let ret = unsafe { nix::libc::utimes(remapped_path.as_ptr(), times.cast()) };
+    let ret = unsafe { original(remapped_path.as_ptr(), times) };
     if ret == -1 {
         return LibcResult::last_error_and_return(ret);
     }
@@ -147,7 +165,7 @@ pub fn utimes(path: *const c_char, times: *const c_void) -> LibcResult<c_int> {
 #[interpose]
 pub fn lutimes(path: *const c_char, times: *const c_void) -> LibcResult<c_int> {
     let remapped_path = path_remapper::remap_c_path(path).unwrap();
-    let ret = unsafe { nix::libc::utimes(remapped_path.as_ptr(), times.cast()) };
+    let ret = unsafe { original(remapped_path.as_ptr(), times) };
     if ret == -1 {
         return LibcResult::last_error_and_return(ret);
     }
@@ -158,7 +176,7 @@ pub fn lutimes(path: *const c_char, times: *const c_void) -> LibcResult<c_int> {
 #[interpose]
 pub fn mkdir(path: *const c_char, mode: c_uint) -> LibcResult<c_int> {
     let remapped_path = path_remapper::remap_c_path(path).unwrap();
-    let ret = unsafe { nix::libc::mkdir(remapped_path.as_ptr(), mode.try_into().unwrap()) };
+    let ret = unsafe { original(remapped_path.as_ptr(), mode) };
     if ret == -1 {
         return LibcResult::last_error_and_return(ret);
     }
@@ -168,7 +186,12 @@ pub fn mkdir(path: *const c_char, mode: c_uint) -> LibcResult<c_int> {
 /// See: man 2 mkdirat  
 #[interpose]
 pub fn mkdirat(fd: c_int, path: *const c_char, mode: c_uint) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = remap_at(fd, path).unwrap();
+    let ret = unsafe { libc::mkdir(remapped_path.as_ptr(), mode.try_into().unwrap()) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
 /// See: man 2 rmdir  
@@ -198,7 +221,7 @@ pub fn opendir(path: *const c_char) -> LibcResult<*mut c_void> {
 pub fn link(oldpath: *const c_char, newpath: *const c_char) -> LibcResult<c_int> {
     let remapped_oldpath = path_remapper::remap_c_path(oldpath).unwrap();
     let remapped_newpath = path_remapper::remap_c_path(newpath).unwrap();
-    let ret = unsafe { nix::libc::link(remapped_oldpath.as_ptr(), remapped_newpath.as_ptr()) };
+    let ret = unsafe { original(remapped_oldpath.as_ptr(), remapped_newpath.as_ptr()) };
     if ret == -1 {
         return LibcResult::last_error_and_return(ret);
     }
@@ -212,27 +235,48 @@ pub fn linkat(
     oldpath: *const c_char,
     newdirfd: c_int,
     newpath: *const c_char,
-    flags: c_int,
 ) -> LibcResult<c_int> {
-    todo!()
+    let remapped_oldpath = remap_at(olddirfd, oldpath).unwrap();
+    let remapped_newpath = remap_at(newdirfd, newpath).unwrap();
+    let ret = unsafe { nix::libc::link(remapped_oldpath.as_ptr(), remapped_newpath.as_ptr()) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
 /// See: man 2 unlink  
 #[interpose]
 pub fn unlink(path: *const c_char) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe { original(remapped_path.as_ptr()) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
 /// See: man 2 unlinkat  
 #[interpose]
-pub fn unlinkat(dirfd: c_int, path: *const c_char, flags: c_int) -> LibcResult<c_int> {
-    todo!()
+pub fn unlinkat(dirfd: c_int, path: *const c_char) -> LibcResult<c_int> {
+    let remapped_path = remap_at(dirfd, path).unwrap();
+    let ret = unsafe { libc::unlink(remapped_path.as_ptr()) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
 /// See: man 2 symlink  
 #[interpose]
 pub fn symlink(target: *const c_char, linkpath: *const c_char) -> LibcResult<c_int> {
-    todo!()
+    let remapped_target = path_remapper::remap_c_path(target).unwrap();
+    let remapped_link = path_remapper::remap_c_path(linkpath).unwrap();
+    let ret = unsafe { original(remapped_target.as_ptr(), remapped_link.as_ptr()) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
 /// See: man 2 symlinkat  
