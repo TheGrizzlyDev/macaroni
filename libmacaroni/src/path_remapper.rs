@@ -4,7 +4,7 @@ use std::{
     sync::LazyLock,
 };
 
-use crate::config;
+use crate::config::{self, MountOptions};
 
 struct PathRemapper {
     remap_config: config::Config,
@@ -37,26 +37,56 @@ impl PathRemapper {
             original_path.to_owned()
         }
     }
+
+    fn inverse_map(&self, remapped_path: &str) -> Option<String> {
+        self.remap_config.mounts
+            .iter()
+            .filter_map(|mount| {
+                let MountOptions::Remap{ host_path } = mount.clone().options;
+                if remapped_path.starts_with(&host_path) {
+                    return Some(host_path)
+                }
+                None
+            })
+            .max_by(|a, b| a.len().cmp(&b.len()))
+    }
+
+    pub fn relative_remap(&self, at_path: &str, original_path: &str) -> Option<String> {
+        if let Some(original_at_path) = self.inverse_map(at_path) {
+            let concat_path = format!("{}{}{}", original_at_path, if original_at_path.ends_with('/') { "" } else { "/" }, original_path);
+            return Some(self.remap(&concat_path));
+        }
+        None
+    }
 }
 
 static REMAPPER: LazyLock<PathRemapper> =
     LazyLock::new(|| PathRemapper::new(config::LIBMACARONI_CONFIG.clone()));
 
-pub fn remap_c_path(path: *const c_char) -> *const c_char {
+pub fn remap_c_path(path: *const c_char) -> Option<CString> {
     if path.is_null() {
-        return ptr::null();
+        return None;
     }
-    let c_str = unsafe { CStr::from_ptr(path) };
-    let original_str = match c_str.to_str() {
-        Ok(s) => s,
-        Err(_) => return ptr::null(),
-    };
+    let path_str = unsafe { CStr::from_ptr(path) }.to_str().expect("TODO");
 
-    let remapped = REMAPPER.remap(original_str);
+    let remapped = REMAPPER.remap(path_str);
 
-    let cstring = CString::new(remapped).unwrap_or_default();
-    let leaked_ptr = Box::leak(cstring.into_boxed_c_str());
-    leaked_ptr.as_ptr()
+    Some(CString::new(remapped).expect("TODO"))
+}
+
+pub fn relative_remap_c_path(at: *const c_char, path: *const c_char) -> Option<CString> {
+    if path.is_null() {
+        return None;
+    }
+    
+    let at_str = unsafe { CStr::from_ptr(at) }.to_str().expect("TODO");
+    let path_str = unsafe { CStr::from_ptr(path) }.to_str().expect("TODO");
+
+    if let Some(remapped) = REMAPPER.relative_remap(at_str, path_str) {
+        return Some(CString::new(remapped).expect("TODO"));
+    }
+    
+    None
 }
 
 #[cfg(test)]
