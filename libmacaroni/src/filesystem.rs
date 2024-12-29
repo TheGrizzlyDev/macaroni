@@ -279,50 +279,6 @@ pub fn symlink(target: *const c_char, linkpath: *const c_char) -> LibcResult<c_i
     LibcResult::return_value(ret)
 }
 
-/// See: man 2 symlinkat  
-#[interpose]
-pub fn symlinkat(
-    target: *const c_char,
-    newdirfd: c_int,
-    linkpath: *const c_char,
-) -> LibcResult<c_int> {
-    todo!()
-}
-
-/// See: man 2 readlink  
-#[interpose]
-pub fn readlink(path: *const c_char, buf: *mut c_char, bufsize: c_size_t) -> LibcResult<c_long> {
-    todo!()
-}
-
-/// See: man 2 readlinkat  
-#[interpose]
-pub fn readlinkat(
-    dirfd: c_int,
-    path: *const c_char,
-    buf: *mut c_char,
-    bufsize: c_size_t,
-) -> LibcResult<c_long> {
-    todo!()
-}
-
-/// See: man 2 rename  
-#[interpose]
-pub fn rename(oldpath: *const c_char, newpath: *const c_char) -> LibcResult<c_int> {
-    todo!()
-}
-
-/// See: man 2 renameat  
-#[interpose]
-pub fn renameat(
-    olddirfd: c_int,
-    oldpath: *const c_char,
-    newdirfd: c_int,
-    newpath: *const c_char,
-) -> LibcResult<c_int> {
-    todo!()
-}
-
 /// See: man 3 remove  
 #[interpose]
 pub fn remove(path: *const c_char) -> LibcResult<c_int> {
@@ -345,38 +301,6 @@ pub fn listxattr(path: *const c_char, namebuf: *mut c_char, size: c_size_t) -> L
     LibcResult::return_value(ret)
 }
 
-/// See: man 2 getxattr  
-#[interpose]
-pub fn getxattr(
-    path: *const c_char,
-    name: *const c_char,
-    value: *mut c_void,
-    size: c_size_t,
-    position: u32,
-    options: c_int,
-) -> LibcResult<c_long> {
-    todo!()
-}
-
-/// See: man 2 setxattr  
-#[interpose]
-pub fn setxattr(
-    path: *const c_char,
-    name: *const c_char,
-    value: *const c_void,
-    size: c_size_t,
-    position: u32,
-    options: c_int,
-) -> LibcResult<c_int> {
-    todo!()
-}
-
-/// See: man 2 removexattr  
-#[interpose]
-pub fn removexattr(path: *const c_char, name: *const c_char) -> LibcResult<c_int> {
-    todo!()
-}
-
 /// See: man 2 access  
 #[interpose]
 pub fn access(path: *const c_char, mode: c_int) -> LibcResult<c_int> {
@@ -388,7 +312,166 @@ pub fn access(path: *const c_char, mode: c_int) -> LibcResult<c_int> {
     LibcResult::return_value(ret)
 }
 
-/// See: man 2 faccessat  
+/// See: man 2 symlinkat (macOS 10.10+)
+#[interpose]
+pub fn symlinkat(
+    target: *const c_char,
+    newdirfd: c_int,
+    linkpath: *const c_char,
+) -> LibcResult<c_int> {
+    let remapped_target = path_remapper::remap_c_path(target).unwrap();
+    let remapped_linkpath = remap_at(newdirfd, linkpath).unwrap();
+
+    // Use the "original" symlinkat whenever possible
+    let ret = unsafe {
+        original(remapped_target.as_ptr(), newdirfd, remapped_linkpath.as_ptr())
+    };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
+}
+
+/// See: man 2 readlink
+#[interpose]
+pub fn readlink(path: *const c_char, buf: *mut c_char, bufsize: c_size_t) -> LibcResult<c_long> {
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe {
+        // "original" readlink has signature readlink(path, buf, bufsize) -> ssize_t
+        original(remapped_path.as_ptr(), buf, bufsize)
+    };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
+}
+
+/// See: man 2 readlinkat (macOS 10.10+)
+#[interpose]
+pub fn readlinkat(
+    dirfd: c_int,
+    path: *const c_char,
+    buf: *mut c_char,
+    bufsize: c_size_t,
+) -> LibcResult<c_long> {
+    let remapped_path = remap_at(dirfd, path).unwrap();
+    let ret = unsafe {
+        // "original" readlinkat has signature readlinkat(dirfd, path, buf, bufsize) -> ssize_t
+        original(dirfd, remapped_path.as_ptr(), buf, bufsize)
+    };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
+}
+
+/// See: man 2 rename
+#[interpose]
+pub fn rename(oldpath: *const c_char, newpath: *const c_char) -> LibcResult<c_int> {
+    let remapped_old = path_remapper::remap_c_path(oldpath).unwrap();
+    let remapped_new = path_remapper::remap_c_path(newpath).unwrap();
+    let ret = unsafe {
+        // "original" rename has signature rename(old, new)
+        original(remapped_old.as_ptr(), remapped_new.as_ptr())
+    };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
+}
+
+/// See: man 2 renameat (macOS 10.10+)
+#[interpose]
+pub fn renameat(
+    olddirfd: c_int,
+    oldpath: *const c_char,
+    newdirfd: c_int,
+    newpath: *const c_char,
+) -> LibcResult<c_int> {
+    let remapped_old = remap_at(olddirfd, oldpath).unwrap();
+    let remapped_new = remap_at(newdirfd, newpath).unwrap();
+    let ret = unsafe {
+        // "original" renameat has signature renameat(oldfd, old, newfd, new)
+        original(
+            olddirfd,
+            remapped_old.as_ptr(),
+            newdirfd,
+            remapped_new.as_ptr(),
+        )
+    };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
+}
+
+/// See: man 2 getxattr
+#[interpose]
+pub fn getxattr(
+    path: *const c_char,
+    name: *const c_char,
+    value: *mut c_void,
+    size: c_size_t,
+    position: u32,
+    options: c_int,
+) -> LibcResult<c_long> {
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    // On macOS, getxattr returns ssize_t
+    let ret = unsafe {
+        original(
+            remapped_path.as_ptr(),
+            name,
+            value,
+            size,
+            position,
+            options,
+        )
+    };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
+}
+
+/// See: man 2 setxattr
+#[interpose]
+pub fn setxattr(
+    path: *const c_char,
+    name: *const c_char,
+    value: *const c_void,
+    size: c_size_t,
+    position: u32,
+    options: c_int,
+) -> LibcResult<c_int> {
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe {
+        original(
+            remapped_path.as_ptr(),
+            name,
+            value,
+            size,
+            position,
+            options,
+        )
+    };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
+}
+
+/// See: man 2 removexattr
+#[interpose]
+pub fn removexattr(path: *const c_char, name: *const c_char) -> LibcResult<c_int> {
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe { original(remapped_path.as_ptr(), name) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
+}
+
+/// See: man 2 faccessat (macOS 10.10+)
 #[interpose]
 pub fn faccessat(
     dirfd: c_int,
@@ -396,58 +479,118 @@ pub fn faccessat(
     mode: c_int,
     flags: c_int,
 ) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = remap_at(dirfd, path).unwrap();
+    let ret = unsafe { original(dirfd, remapped_path.as_ptr(), mode, flags) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 2 chdir  
+/// See: man 2 chdir
 #[interpose]
 pub fn chdir(path: *const c_char) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe {
+        // "original" chdir(path)
+        original(remapped_path.as_ptr())
+    };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 3 realpath  
+/// See: man 3 realpath
 #[interpose]
 pub fn realpath(path: *const c_char, resolved: *mut c_char) -> LibcResult<*mut c_char> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe {
+        // "original" realpath(path, resolved)
+        original(remapped_path.as_ptr(), resolved)
+    };
+    if ret.is_null() {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 2 statfs  
+/// See: man 2 statfs
 #[interpose]
 pub fn statfs(path: *const c_char, buf: *mut libc::statfs) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe { original(remapped_path.as_ptr(), buf) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 2 truncate  
+/// See: man 2 truncate
 #[interpose]
 pub fn truncate(path: *const c_char, length: i64) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe { original(remapped_path.as_ptr(), length) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 2 mknod  
+/// See: man 2 mknod
 #[interpose]
 pub fn mknod(path: *const c_char, mode: c_uint, dev: c_uint) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    // On macOS, mknod(path, mode_t, dev_t)
+    let ret = unsafe {
+        original(
+            remapped_path.as_ptr(),
+            mode,
+            dev,
+        )
+    };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 2 unmount  
+/// See: man 2 unmount (macOS)
 #[interpose]
 pub fn unmount(path: *const c_char, flags: c_int) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    // On macOS, unmount(path, flags)
+    let ret = unsafe { original(remapped_path.as_ptr(), flags) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 3 mkfifo  
+/// See: man 3 mkfifo (macOS)
 #[interpose]
 pub fn mkfifo(path: *const c_char, mode: c_uint) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe { original(remapped_path.as_ptr(), mode) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 2 mkfifoat  
+/// See: man 2 mkfifoat (macOS 10.10+)
 #[interpose]
 pub fn mkfifoat(fd: c_int, path: *const c_char, mode: c_uint) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = remap_at(fd, path).unwrap();
+    // "original" mkfifoat(dirfd, path, mode_t)
+    let ret = unsafe { original(fd, remapped_path.as_ptr(), mode) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 2 utimensat  
+/// See: man 2 utimensat (macOS 10.13+)
 #[interpose]
 pub fn utimensat(
     dirfd: c_int,
@@ -455,16 +598,28 @@ pub fn utimensat(
     times: *const c_void,
     flags: c_int,
 ) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = remap_at(dirfd, path).unwrap();
+    // "original" utimensat(dirfd, pathname, times, flags)
+    let ret = unsafe { original(dirfd, remapped_path.as_ptr(), times, flags) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 2 getfh (BSD/macOS)  
+/// See: man 2 getfh (BSD/macOS)
 #[interpose]
 pub fn getfh(path: *const c_char, fhp: *mut c_void) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    // "original" getfh(path, fhandle_t*)
+    let ret = unsafe { original(remapped_path.as_ptr(), fhp) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// Apple-specific, no standard man page.  
+/// Apple-specific, no standard man page: open_dprotected_np
 #[interpose]
 pub fn open_dprotected_np(
     path: *const c_char,
@@ -473,10 +628,23 @@ pub fn open_dprotected_np(
     dpflags: c_int,
     mode: c_int,
 ) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe {
+        original(
+            remapped_path.as_ptr(),
+            flags,
+            protection_class,
+            dpflags,
+            mode,
+        )
+    };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 2 searchfs (BSD/macOS)  
+/// See: man 2 searchfs (macOS)
 #[interpose]
 pub fn searchfs(
     path: *const c_char,
@@ -485,10 +653,16 @@ pub fn searchfs(
     searchparams: c_uint,
     options: c_int,
 ) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    // "original" searchfs(path, searchblock, resultblock, searchparams, options)
+    let ret = unsafe { original(remapped_path.as_ptr(), searchblock, resultblock, searchparams, options) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
-/// See: man 2 fsctl (BSD/macOS)  
+/// See: man 2 fsctl (macOS)
 #[interpose]
 pub fn fsctl(
     path: *const c_char,
@@ -496,5 +670,11 @@ pub fn fsctl(
     data: *mut c_void,
     options: c_int,
 ) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    // "original" fsctl(path, cmd, data, options)
+    let ret = unsafe { original(remapped_path.as_ptr(), cmd, data, options) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
