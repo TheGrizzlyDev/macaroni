@@ -326,13 +326,23 @@ pub fn renameat(
 /// See: man 3 remove  
 #[interpose]
 pub fn remove(path: *const c_char) -> LibcResult<c_int> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe { original(remapped_path.as_ptr()) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
 /// See: man 2 listxattr  
 #[interpose]
 pub fn listxattr(path: *const c_char, namebuf: *mut c_char, size: c_size_t) -> LibcResult<c_long> {
-    todo!()
+    let remapped_path = path_remapper::remap_c_path(path).unwrap();
+    let ret = unsafe { original(remapped_path.as_ptr(), namebuf, size) };
+    if ret == -1 {
+        return LibcResult::last_error_and_return(ret);
+    }
+    LibcResult::return_value(ret)
 }
 
 /// See: man 2 getxattr  
