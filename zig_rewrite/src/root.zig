@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const std = @import("std");
 const testing = std.testing;
 const libsystem = @import("./libsystem.zig");
@@ -11,15 +12,19 @@ var LIBMACARONI_PATH: []const u8 = undefined;
 var DEFAULT_PATH_RESOLVER: PathResolver = undefined;
 
 comptime {
-    @export(INTERPOSED_SYMBOLS, .{ .name = "INTERPOSED_SYMBOLS", .linkage = .strong, .section = "__DATA,__interpose" });
+    if (!builtin.is_test) {
+        @export(INTERPOSED_SYMBOLS, .{ .name = "INTERPOSED_SYMBOLS", .linkage = .strong, .section = "__DATA,__interpose" });
+    }
 }
 const INTERPOSED_SYMBOLS = [_]Interpose{
     .{ .original = libsystem.getcwd, .replacement = cwd.getcwd },
 };
 
 comptime {
-    const initPtr = &init;
-    @export(initPtr, .{ .name = "init", .linkage = .strong, .section = "__DATA,__mod_init_func" });
+    if (!builtin.is_test) {
+        const initPtr = &init;
+        @export(initPtr, .{ .name = "init", .linkage = .strong, .section = "__DATA,__mod_init_func" });
+    }
 }
 fn init() callconv(.C) void {
     std.debug.print("init!\n", .{});
