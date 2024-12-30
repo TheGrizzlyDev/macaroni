@@ -1,11 +1,13 @@
 const std = @import("std");
 const testing = std.testing;
 const libsystem = @import("./libsystem.zig");
+const dyld = @import("./dyld.zig");
 const cwd = @import("./cwd.zig").cwd(&DEFAULT_PATH_RESOLVER);
 const PathResolver = @import("./PathResolver.zig");
 
 const Interpose = extern struct { original: *const anyopaque, replacement: *const anyopaque };
 
+var LIBMACARONI_PATH: []const u8 = undefined;
 var DEFAULT_PATH_RESOLVER: PathResolver = undefined;
 
 comptime {
@@ -21,7 +23,12 @@ comptime {
 }
 fn init() callconv(.C) void {
     std.debug.print("init!\n", .{});
+
     DEFAULT_PATH_RESOLVER.str = "bla";
+
+    LIBMACARONI_PATH = dyld.findLibraryPath("libmacaroni.dylib") orelse unreachable;
+
+    std.debug.print("Libmacaroni path: {s}\n", .{LIBMACARONI_PATH});
 }
 
 test {
