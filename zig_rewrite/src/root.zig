@@ -24,8 +24,6 @@ comptime {
 fn init() callconv(.C) void {
     std.debug.print("init!\n", .{});
 
-    DEFAULT_PATH_RESOLVER.str = "bla";
-
     LIBMACARONI_PATH = dyld.findLibraryPath("libmacaroni.dylib") orelse unreachable;
 
     std.debug.print("Libmacaroni path: {s}\n", .{LIBMACARONI_PATH});

@@ -7,7 +7,6 @@ pub fn cwd(pathResolver: *PathResolver) type {
         pub var cwdPathResolver: *PathResolver = pathResolver;
 
         pub fn getcwd(buf: [*c]u8, size: usize) callconv(.C) [*c]u8 {
-            cwdPathResolver.bla();
             std.debug.print("called getcwd\n", .{});
             return libsystem.getcwd(buf, size);
         }
