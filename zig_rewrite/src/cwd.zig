@@ -14,14 +14,14 @@ pub fn cwd(pathResolver: *PathResolver, allocator: *std.mem.Allocator) type {
             }
 
             const resolved_path = cwdPathResolver.reverse_resolve(cwdAllocator.*, std.mem.span(ret_ptr)) catch {
-                // std.os.setErrno(std.posix.E.ENOENT);
+                libsystem.setErrno(std.posix.E.NOENT);
                 return null;
             };
             defer allocator.free(resolved_path);
 
             if (size == 0) {
                 var new_buf = std.heap.c_allocator.alloc(u8, resolved_path.len + 1) catch {
-                    // std.os.setErrno(std.posix.E.ENOENT);
+                    libsystem.setErrno(std.posix.E.NOENT);
                     return null;
                 };
 
@@ -31,8 +31,7 @@ pub fn cwd(pathResolver: *PathResolver, allocator: *std.mem.Allocator) type {
             }
 
             if (resolved_path.len >= size) {
-                std.debug.print("resolved_path: {s}\n", .{resolved_path});
-                // std.os.setErrno(std.posix.E.ERANGE);
+                libsystem.setErrno(std.posix.E.RANGE);
                 return null;
             }
 

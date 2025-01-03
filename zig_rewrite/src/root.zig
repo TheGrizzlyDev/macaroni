@@ -35,7 +35,7 @@ fn init() callconv(.C) void {
 
     std.debug.print("Libmacaroni path: {s}\n", .{LIBMACARONI_PATH});
 
-    DEFAULT_PATH_RESOLVER = PathResolver.init(GPA.allocator(), &[_]PathResolver.Mapping{PathResolver.Mapping{ .host_path = "/Users/m1/src/macaroni", .sandbox_path = "/bla" }}) catch unreachable;
+    DEFAULT_PATH_RESOLVER = PathResolver.init(GPA.allocator(), &[_]PathResolver.Mapping{.{ .host_path = "/Users/m1/src/macaroni", .sandbox_path = "/bla" }}) catch unreachable;
 }
 
 test {
