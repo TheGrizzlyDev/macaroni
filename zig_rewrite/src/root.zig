@@ -26,6 +26,10 @@ const INTERPOSED_SYMBOLS = [_]Interpose{
     .{ .original = libsystem.stat, .replacement = fs.stat },
     .{ .original = libsystem.chmod, .replacement = fs.chmod },
     .{ .original = libsystem.chown, .replacement = fs.chown },
+    .{ .original = libsystem.utimes, .replacement = fs.utimes },
+    .{ .original = libsystem.mkdir, .replacement = fs.mkdir },
+    .{ .original = libsystem.rmdir, .replacement = fs.rmdir },
+    .{ .original = libsystem.opendir, .replacement = fs.opendir },
 };
 
 comptime {

@@ -12,3 +12,7 @@ pub extern fn creat(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_i
 pub extern fn stat(path: [*c]const u8, buf: *anyopaque) callconv(.C) c_int;
 pub extern fn chmod(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_int;
 pub extern fn chown(path: [*c]const u8, owner: c_int, group: c_int) callconv(.C) c_int;
+pub extern fn utimes(path: [*c]const u8, times: *anyopaque) callconv(.C) c_int;
+pub extern fn mkdir(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_int;
+pub extern fn rmdir(path: [*c]const u8) callconv(.C) c_int;
+pub extern fn opendir(path: [*c]const u8) callconv(.C) ?*anyopaque;

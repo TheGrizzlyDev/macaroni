@@ -47,5 +47,37 @@ pub fn fs(pathResolver: *PathResolver, allocator: *std.mem.Allocator) type {
             };
             return libsystem.chown(@ptrCast(resolved_path), owner, group);
         }
+
+        pub fn utimes(path: [*c]const u8, times: *anyopaque) callconv(.C) c_int {
+            const resolved_path = fsPathResolver.resolve(fsAllocator.*, std.mem.span(path), .{ .sentinel = 0 }) catch {
+                libsystem.setErrno(std.posix.E.NOENT);
+                return -1;
+            };
+            return libsystem.utimes(@ptrCast(resolved_path), times);
+        }
+
+        pub fn mkdir(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_int {
+            const resolved_path = fsPathResolver.resolve(fsAllocator.*, std.mem.span(path), .{ .sentinel = 0 }) catch {
+                libsystem.setErrno(std.posix.E.NOENT);
+                return -1;
+            };
+            return libsystem.mkdir(@ptrCast(resolved_path), mode);
+        }
+
+        pub fn rmdir(path: [*c]const u8) callconv(.C) c_int {
+            const resolved_path = fsPathResolver.resolve(fsAllocator.*, std.mem.span(path), .{ .sentinel = 0 }) catch {
+                libsystem.setErrno(std.posix.E.NOENT);
+                return -1;
+            };
+            return libsystem.rmdir(@ptrCast(resolved_path));
+        }
+
+        pub fn opendir(path: [*c]const u8) callconv(.C) ?*anyopaque {
+            const resolved_path = fsPathResolver.resolve(fsAllocator.*, std.mem.span(path), .{ .sentinel = 0 }) catch {
+                libsystem.setErrno(std.posix.E.NOENT);
+                return null;
+            };
+            return libsystem.opendir(@ptrCast(resolved_path));
+        }
     };
 }
