@@ -3,13 +3,15 @@ const std = @import("std");
 const testing = std.testing;
 const libsystem = @import("./libsystem.zig");
 const dyld = @import("./dyld.zig");
-const cwd = @import("./cwd.zig").cwd(&DEFAULT_PATH_RESOLVER);
+const cwd = @import("./cwd.zig").cwd(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
 const PathResolver = @import("./PathResolver.zig");
 
 const Interpose = extern struct { original: *const anyopaque, replacement: *const anyopaque };
 
 var LIBMACARONI_PATH: []const u8 = undefined;
 var DEFAULT_PATH_RESOLVER: PathResolver = undefined;
+var GPA = std.heap.GeneralPurposeAllocator(.{}){};
+var GLOBAL_ALLOCATOR = GPA.allocator();
 
 comptime {
     if (!builtin.is_test) {
@@ -32,6 +34,8 @@ fn init() callconv(.C) void {
     LIBMACARONI_PATH = dyld.findLibraryPath("libmacaroni.dylib") orelse unreachable;
 
     std.debug.print("Libmacaroni path: {s}\n", .{LIBMACARONI_PATH});
+
+    DEFAULT_PATH_RESOLVER = PathResolver.init(GPA.allocator(), &[_]PathResolver.Mapping{PathResolver.Mapping{ .host_path = "/Users/m1/src/macaroni", .sandbox_path = "/bla" }}) catch unreachable;
 }
 
 test {
