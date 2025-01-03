@@ -4,6 +4,7 @@ const testing = std.testing;
 const libsystem = @import("./libsystem.zig");
 const dyld = @import("./dyld.zig");
 const cwd = @import("./cwd.zig").cwd(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
+const fs = @import("./fs.zig").fs(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
 const PathResolver = @import("./PathResolver.zig");
 
 const Interpose = extern struct { original: *const anyopaque, replacement: *const anyopaque };
@@ -20,6 +21,11 @@ comptime {
 }
 const INTERPOSED_SYMBOLS = [_]Interpose{
     .{ .original = libsystem.getcwd, .replacement = cwd.getcwd },
+    .{ .original = libsystem.open, .replacement = fs.open },
+    .{ .original = libsystem.creat, .replacement = fs.creat },
+    .{ .original = libsystem.stat, .replacement = fs.stat },
+    .{ .original = libsystem.chmod, .replacement = fs.chmod },
+    .{ .original = libsystem.chown, .replacement = fs.chown },
 };
 
 comptime {
@@ -35,7 +41,7 @@ fn init() callconv(.C) void {
 
     std.debug.print("Libmacaroni path: {s}\n", .{LIBMACARONI_PATH});
 
-    DEFAULT_PATH_RESOLVER = PathResolver.init(GPA.allocator(), &[_]PathResolver.Mapping{.{ .host_path = "/Users/m1/src/macaroni", .sandbox_path = "/bla" }}) catch unreachable;
+    DEFAULT_PATH_RESOLVER = PathResolver.init(GPA.allocator(), &[_]PathResolver.Mapping{.{ .host_path = "/Users/m1/src/macaroni", .sandbox_path = "/" }}) catch unreachable;
 }
 
 test {

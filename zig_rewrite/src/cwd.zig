@@ -8,25 +8,27 @@ pub fn cwd(pathResolver: *PathResolver, allocator: *std.mem.Allocator) type {
         var cwdAllocator = allocator;
 
         pub fn getcwd(buf: [*c]u8, size: usize) callconv(.C) [*c]u8 {
+            // TODO: this could have arbitrary size as the path prior to mapping
+            // is allowed to be shorter than buf
             const ret_ptr = libsystem.getcwd(buf, size);
             if (ret_ptr == null) {
                 return null;
             }
 
-            const resolved_path = cwdPathResolver.reverse_resolve(cwdAllocator.*, std.mem.span(ret_ptr)) catch {
+            const resolved_path = cwdPathResolver.reverse_resolve(cwdAllocator.*, std.mem.span(ret_ptr), .{
+                .sentinel = 0,
+            }) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return null;
             };
             defer allocator.free(resolved_path);
 
             if (size == 0) {
-                var new_buf = std.heap.c_allocator.alloc(u8, resolved_path.len + 1) catch {
+                const new_buf = std.heap.c_allocator.dupeZ(u8, resolved_path) catch {
                     libsystem.setErrno(std.posix.E.NOENT);
                     return null;
                 };
 
-                std.mem.copyForwards(u8, new_buf[0..resolved_path.len], resolved_path);
-                new_buf[resolved_path.len] = 0;
                 return @ptrCast(new_buf);
             }
 
@@ -36,7 +38,6 @@ pub fn cwd(pathResolver: *PathResolver, allocator: *std.mem.Allocator) type {
             }
 
             std.mem.copyForwards(u8, buf[0..resolved_path.len], resolved_path);
-            buf[resolved_path.len] = 0;
 
             return buf;
         }

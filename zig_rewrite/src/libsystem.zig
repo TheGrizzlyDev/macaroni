@@ -7,3 +7,8 @@ pub fn setErrno(e: std.posix.E) void {
 }
 
 pub extern fn getcwd(buf: [*c]u8, size: usize) [*c]u8;
+pub extern fn open(path: [*c]const u8, oflag: c_int, ...) callconv(.C) c_int;
+pub extern fn creat(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_int;
+pub extern fn stat(path: [*c]const u8, buf: *anyopaque) callconv(.C) c_int;
+pub extern fn chmod(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_int;
+pub extern fn chown(path: [*c]const u8, owner: c_int, group: c_int) callconv(.C) c_int;
