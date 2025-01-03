@@ -4,8 +4,6 @@ Sandbox FS is the structure of each individual sandbox. It is designed so that e
 
 / <- root of the FS
 /config.json <- describes the shared configuration of all processes in a sandbox
-/pid/{real-pid}
-    / ...
 
 # Config file
 
