@@ -14,6 +14,7 @@ pub fn exec(pathResolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 return -1;
             };
             // TODO: ensure that the env variables required by macaroni are forwarded
+            // TODO: translate libraries search paths too
             return libsystem.execve(@ptrCast(resolved_path), argv, envp);
         }
     };
