@@ -16,3 +16,4 @@ pub extern fn utimes(path: [*c]const u8, times: *anyopaque) callconv(.C) c_int;
 pub extern fn mkdir(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_int;
 pub extern fn rmdir(path: [*c]const u8) callconv(.C) c_int;
 pub extern fn opendir(path: [*c]const u8) callconv(.C) ?*anyopaque;
+pub extern fn execve(path: [*c]const u8, argv: [*c][*c]const u8, envp: [*c][*c]const u8) callconv(.C) c_int;

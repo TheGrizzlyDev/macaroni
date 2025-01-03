@@ -5,6 +5,7 @@ const libsystem = @import("./libsystem.zig");
 const dyld = @import("./dyld.zig");
 const cwd = @import("./cwd.zig").cwd(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
 const fs = @import("./fs.zig").fs(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
+const exec = @import("./exec.zig").exec(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
 const PathResolver = @import("./PathResolver.zig");
 
 const Interpose = extern struct { original: *const anyopaque, replacement: *const anyopaque };
@@ -30,6 +31,7 @@ const INTERPOSED_SYMBOLS = [_]Interpose{
     .{ .original = libsystem.mkdir, .replacement = fs.mkdir },
     .{ .original = libsystem.rmdir, .replacement = fs.rmdir },
     .{ .original = libsystem.opendir, .replacement = fs.opendir },
+    .{ .original = libsystem.execve, .replacement = exec.execve },
 };
 
 comptime {
