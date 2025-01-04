@@ -37,17 +37,11 @@ pub const ResolutionOptions = struct {
     sentinel: ?u8 = null,
 };
 
-fn concatPaths(allocator: std.mem.Allocator, first: []const u8, second: []const u8, comptime null_terminated: bool) !(if (null_terminated) [:0]u8 else []u8) {
-    const path = try std.fs.path.join(allocator, &[_][]const u8{ first, second });
-    if (null_terminated) {
-        defer allocator.free(path);
-        return allocator.dupeZ(u8, path);
-    }
-    return path;
+fn concatPaths(allocator: std.mem.Allocator, first: []const u8, second: []const u8) ![]u8 {
+    return std.fs.path.join(allocator, &[_][]const u8{ first, second });
 }
 
 pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
-    // TODO handle relative paths
     const realpath = try blk: {
         if (std.mem.startsWith(u8, path, "/"))
             break :blk std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
@@ -63,7 +57,7 @@ pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8) ![
             continue;
         if (!std.mem.startsWith(u8, realpath, mount.sandbox_path))
             continue;
-        const resolved_path = try concatPaths(allocator, mount.host_path, realpath[mount.sandbox_path.len..], true);
+        const resolved_path = try concatPaths(allocator, mount.host_path, realpath[mount.sandbox_path.len..]);
         return resolved_path;
     }
     return ResolutionError.MappingNotFound;
@@ -77,7 +71,7 @@ pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []cons
             continue;
         if (!std.mem.startsWith(u8, realpath, mount.host_path))
             continue;
-        return concatPaths(allocator, mount.sandbox_path, realpath[mount.host_path.len..], true);
+        return concatPaths(allocator, mount.sandbox_path, realpath[mount.host_path.len..]);
     }
     return ResolutionError.MappingNotFound;
 }

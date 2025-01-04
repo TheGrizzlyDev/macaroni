@@ -21,6 +21,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
+            defer allocator.free(remapped_path);
             var va = @cVaStart();
             defer @cVaEnd(&va);
             return libsystem.open(@ptrCast(remapped_path), oflag, @cVaCopy(&va));
@@ -37,6 +38,8 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
+            defer allocator.free(remapped_path);
+
             var va = @cVaStart();
             defer @cVaEnd(&va);
             return libsystem.open(@ptrCast(remapped_path), oflag, @cVaCopy(&va));
@@ -47,6 +50,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
+            defer allocator.free(resolved_path);
             return libsystem.creat(@ptrCast(resolved_path), mode);
         }
 
@@ -55,6 +59,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
+            defer allocator.free(resolved_path);
             return libsystem.stat(@ptrCast(resolved_path), buf);
         }
 
@@ -63,6 +68,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
+            defer allocator.free(resolved_path);
             return libsystem.chmod(@ptrCast(resolved_path), mode);
         }
 
@@ -71,6 +77,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
+            defer allocator.free(resolved_path);
             return libsystem.chown(@ptrCast(resolved_path), owner, group);
         }
 
@@ -79,6 +86,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
+            defer allocator.free(resolved_path);
             return libsystem.utimes(@ptrCast(resolved_path), times);
         }
 
@@ -87,6 +95,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
+            defer allocator.free(resolved_path);
             return libsystem.mkdir(@ptrCast(resolved_path), mode);
         }
 
@@ -95,6 +104,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
+            defer allocator.free(resolved_path);
             return libsystem.rmdir(@ptrCast(resolved_path));
         }
 
@@ -103,6 +113,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return null;
             };
+            defer allocator.free(resolved_path);
             return libsystem.opendir(@ptrCast(resolved_path));
         }
 
@@ -111,6 +122,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return null;
             };
+            defer allocator.free(host_cwd);
             const resolved_path = path_resolver.reverse_resolve(allocator.*, host_cwd) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return null;
@@ -126,13 +138,13 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 return @ptrCast(new_buf);
             }
 
-            std.debug.print("cwd path: {s}, size: {any}\n", .{ resolved_path, size });
             if (resolved_path.len >= size) {
                 libsystem.setErrno(std.posix.E.RANGE);
                 return null;
             }
 
             std.mem.copyForwards(u8, buf[0..resolved_path.len], resolved_path);
+            buf[resolved_path.len] = 0;
 
             return buf;
         }
