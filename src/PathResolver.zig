@@ -51,7 +51,6 @@ pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, co
     const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
     defer allocator.free(realpath);
     for (self.mounts_sorted_by_sandbox_path_desc) |mount| {
-        std.debug.print("mount '{s}' to '{s}'\n", .{ realpath, mount.sandbox_path });
         if (mount.sandbox_path.len > realpath.len)
             continue;
         if (!std.mem.startsWith(u8, realpath, mount.sandbox_path))
@@ -65,7 +64,6 @@ pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []cons
     const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
     defer allocator.free(realpath);
     for (self.mounts_sorted_by_host_path_desc) |mount| {
-        std.debug.print("reverse mount '{s}' to '{s}'\n", .{ realpath, mount.host_path });
         if (mount.host_path.len > realpath.len)
             continue;
         if (!std.mem.startsWith(u8, realpath, mount.host_path))
