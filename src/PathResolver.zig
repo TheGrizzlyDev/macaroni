@@ -1,5 +1,6 @@
 const std = @import("std");
 const Mount = @import("./config.zig").Mount;
+const utils = @import("./utils.zig");
 
 pub const ResolutionError = error{
     MappingNotFound,
@@ -36,20 +37,34 @@ pub const ResolutionOptions = struct {
     sentinel: ?u8 = null,
 };
 
-fn concatPaths(allocator: std.mem.Allocator, first: []const u8, second: []const u8) ![]u8 {
-    return std.fs.path.join(allocator, &[_][]const u8{ first, second });
+fn concatPaths(allocator: std.mem.Allocator, first: []const u8, second: []const u8, comptime null_terminated: bool) !(if (null_terminated) [:0]u8 else []u8) {
+    const path = try std.fs.path.join(allocator, &[_][]const u8{ first, second });
+    if (null_terminated) {
+        defer allocator.free(path);
+        return allocator.dupeZ(u8, path);
+    }
+    return path;
 }
 
 pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
     // TODO handle relative paths
-    const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
+    const realpath = try blk: {
+        if (std.mem.startsWith(u8, path, "/"))
+            break :blk std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
+        const host_cwd = try utils.cwdPath(allocator);
+        defer allocator.free(host_cwd);
+        const sandbox_cwd = try self.reverse_resolve(allocator, host_cwd);
+        defer allocator.free(sandbox_cwd);
+        break :blk std.fs.path.resolvePosix(allocator, &[_][]const u8{ sandbox_cwd, path });
+    };
     defer allocator.free(realpath);
     for (self.mounts_sorted_by_sandbox_path_desc) |mount| {
         if (mount.sandbox_path.len > realpath.len)
             continue;
         if (!std.mem.startsWith(u8, realpath, mount.sandbox_path))
             continue;
-        return concatPaths(allocator, mount.host_path, realpath[mount.sandbox_path.len..]);
+        const resolved_path = try concatPaths(allocator, mount.host_path, realpath[mount.sandbox_path.len..], true);
+        return resolved_path;
     }
     return ResolutionError.MappingNotFound;
 }
@@ -62,7 +77,7 @@ pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []cons
             continue;
         if (!std.mem.startsWith(u8, realpath, mount.host_path))
             continue;
-        return concatPaths(allocator, mount.sandbox_path, realpath[mount.host_path.len..]);
+        return concatPaths(allocator, mount.sandbox_path, realpath[mount.host_path.len..], true);
     }
     return ResolutionError.MappingNotFound;
 }

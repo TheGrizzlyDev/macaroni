@@ -126,6 +126,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 return @ptrCast(new_buf);
             }
 
+            std.debug.print("cwd path: {s}, size: {any}\n", .{ resolved_path, size });
             if (resolved_path.len >= size) {
                 libsystem.setErrno(std.posix.E.RANGE);
                 return null;
