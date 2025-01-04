@@ -51,23 +51,28 @@ fn concatPaths(allocator: std.mem.Allocator, first: []const u8, second: []const 
 }
 
 pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, comptime opts: ResolutionOptions) ![]const u8 {
+    // TODO handle relative paths
+    const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
+    defer allocator.free(realpath);
     for (self.mappings_sorted_by_sandbox_path_desc) |mapping| {
-        if (mapping.sandbox_path.len > path.len)
+        if (mapping.sandbox_path.len > realpath.len)
             continue;
-        if (!std.mem.startsWith(u8, path, mapping.sandbox_path))
+        if (!std.mem.startsWith(u8, realpath, mapping.sandbox_path))
             continue;
-        return try concatPaths(allocator, mapping.host_path, path[mapping.sandbox_path.len..], opts.sentinel);
+        return try concatPaths(allocator, mapping.host_path, realpath[mapping.sandbox_path.len..], opts.sentinel);
     }
     return ResolutionError.MappingNotFound;
 }
 
 pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, comptime opts: ResolutionOptions) ![]const u8 {
+    const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
+    defer allocator.free(realpath);
     for (self.mappings_sorted_by_host_path_desc) |mapping| {
-        if (mapping.host_path.len > path.len)
+        if (mapping.host_path.len > realpath.len)
             continue;
-        if (!std.mem.startsWith(u8, path, mapping.host_path))
+        if (!std.mem.startsWith(u8, realpath, mapping.host_path))
             continue;
-        return try concatPaths(allocator, mapping.sandbox_path, path[mapping.host_path.len..], opts.sentinel);
+        return try concatPaths(allocator, mapping.sandbox_path, realpath[mapping.host_path.len..], opts.sentinel);
     }
     return ResolutionError.MappingNotFound;
 }
