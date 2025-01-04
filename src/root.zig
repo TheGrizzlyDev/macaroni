@@ -3,7 +3,6 @@ const std = @import("std");
 const testing = std.testing;
 const libsystem = @import("./libsystem.zig");
 const dyld = @import("./dyld.zig");
-const cwd = @import("./cwd.zig").cwd(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
 const fs = @import("./fs.zig").fs(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
 const exec = @import("./exec.zig").exec(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
 const PathResolver = @import("./PathResolver.zig");
@@ -22,7 +21,7 @@ comptime {
     }
 }
 const INTERPOSED_SYMBOLS = [_]Interpose{
-    .{ .original = libsystem.getcwd, .replacement = cwd.getcwd },
+    .{ .original = libsystem.getcwd, .replacement = fs.getcwd },
     .{ .original = libsystem.open, .replacement = fs.open },
     .{ .original = libsystem.openat, .replacement = fs.openat },
     .{ .original = libsystem.creat, .replacement = fs.creat },

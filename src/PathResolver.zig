@@ -36,17 +36,11 @@ pub const ResolutionOptions = struct {
     sentinel: ?u8 = null,
 };
 
-// TODO: add tests
-fn concatPaths(allocator: std.mem.Allocator, first: []const u8, second: []const u8, comptime sentinel: ?u8) ![]u8 {
-    const parts = &[_][]const u8{
-        first,
-        if (std.mem.endsWith(u8, first, "/") or std.mem.startsWith(u8, second, "/")) "" else "/",
-        second,
-    };
-    return try std.mem.concatMaybeSentinel(allocator, u8, parts, sentinel);
+fn concatPaths(allocator: std.mem.Allocator, first: []const u8, second: []const u8) ![]u8 {
+    return std.fs.path.join(allocator, &[_][]const u8{ first, second });
 }
 
-pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, comptime opts: ResolutionOptions) ![]const u8 {
+pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
     // TODO handle relative paths
     const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
     defer allocator.free(realpath);
@@ -55,12 +49,12 @@ pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, co
             continue;
         if (!std.mem.startsWith(u8, realpath, mount.sandbox_path))
             continue;
-        return try concatPaths(allocator, mount.host_path, realpath[mount.sandbox_path.len..], opts.sentinel);
+        return concatPaths(allocator, mount.host_path, realpath[mount.sandbox_path.len..]);
     }
     return ResolutionError.MappingNotFound;
 }
 
-pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, comptime opts: ResolutionOptions) ![]const u8 {
+pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
     const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
     defer allocator.free(realpath);
     for (self.mounts_sorted_by_host_path_desc) |mount| {
@@ -68,7 +62,7 @@ pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []cons
             continue;
         if (!std.mem.startsWith(u8, realpath, mount.host_path))
             continue;
-        return try concatPaths(allocator, mount.sandbox_path, realpath[mount.host_path.len..], opts.sentinel);
+        return concatPaths(allocator, mount.sandbox_path, realpath[mount.host_path.len..]);
     }
     return ResolutionError.MappingNotFound;
 }
