@@ -8,3 +8,7 @@ Instead this library intercepts FS related calls from libSystem via DYLD_INSERT_
 ## How to use it
 
 At this point in time, this project is only tested on macos and requires installing the latest zig toolchain. You can then use zig to build the library by running `zig build`. 
+
+Then you can run any process under the sandbox by setting the following env:
+- DYLD_INSERT_LIBRARIES: must contain the path to the shared library built by zig
+- MACARONI_SANDBOX_ROOT: must be the path to the directory containing the state of the sandbox
