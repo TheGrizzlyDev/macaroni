@@ -49,7 +49,10 @@ fn init() callconv(.C) void {
 
     // TODO: load setup from a config file
     // TODO: config should support exclusion of libraries from sandbox
-    DEFAULT_PATH_RESOLVER = PathResolver.init(GPA.allocator(), &[_]PathResolver.Mapping{.{ .host_path = "/Users/m1/src/macaroni", .sandbox_path = "/" }}) catch unreachable;
+    DEFAULT_PATH_RESOLVER = PathResolver.init(GPA.allocator(), &[_]PathResolver.Mapping{
+        .{ .host_path = "/Users/m1/src/macaroni", .sandbox_path = "/" },
+        .{ .host_path = "/opt/homebrew/bin/", .sandbox_path = "/bin" },
+    }) catch unreachable;
 }
 
 test {
