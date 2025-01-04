@@ -7,6 +7,7 @@ const cwd = @import("./cwd.zig").cwd(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
 const fs = @import("./fs.zig").fs(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
 const exec = @import("./exec.zig").exec(&DEFAULT_PATH_RESOLVER, &GLOBAL_ALLOCATOR);
 const PathResolver = @import("./PathResolver.zig");
+const config = @import("./config.zig");
 
 const Interpose = extern struct { original: *const anyopaque, replacement: *const anyopaque };
 
@@ -42,18 +43,17 @@ comptime {
     }
 }
 fn init() callconv(.C) void {
-    std.debug.print("init!\n", .{});
-
     LIBMACARONI_PATH = dyld.findLibraryPath("libmacaroni.dylib") orelse unreachable;
 
-    std.debug.print("Libmacaroni path: {s}\n", .{LIBMACARONI_PATH});
-
-    // TODO: load setup from a config file
-    // TODO: config should support exclusion of libraries from sandbox
-    DEFAULT_PATH_RESOLVER = PathResolver.init(GPA.allocator(), &[_]PathResolver.Mapping{
-        .{ .host_path = "/Users/m1/src/macaroni", .sandbox_path = "/" },
-        .{ .host_path = "/opt/homebrew/bin", .sandbox_path = "/bin" },
-    }) catch unreachable;
+    const sandbox_root = std.process.getEnvVarOwned(GLOBAL_ALLOCATOR, "MACARONI_SANDBOX_ROOT") catch unreachable;
+    defer GLOBAL_ALLOCATOR.free(sandbox_root);
+    const sandbox_config_path = std.fs.path.resolve(GLOBAL_ALLOCATOR, &[_][]const u8{ sandbox_root, "config.json" }) catch unreachable;
+    defer GLOBAL_ALLOCATOR.free(sandbox_config_path);
+    const sandbox_config_file = std.fs.openFileAbsolute(sandbox_config_path, .{ .mode = .read_only }) catch unreachable;
+    const sandbox_config_content = sandbox_config_file.readToEndAlloc(GLOBAL_ALLOCATOR, sandbox_config_file.getEndPos() catch unreachable) catch unreachable;
+    defer GLOBAL_ALLOCATOR.free(sandbox_config_content);
+    const config_json = std.json.parseFromSliceLeaky(config.Config, GLOBAL_ALLOCATOR, sandbox_config_content, .{ .allocate = .alloc_always }) catch unreachable;
+    DEFAULT_PATH_RESOLVER = PathResolver.init(GPA.allocator(), config_json.mounts) catch unreachable;
 }
 
 test {

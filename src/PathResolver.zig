@@ -1,39 +1,35 @@
 const std = @import("std");
+const Mount = @import("./config.zig").Mount;
 
 pub const ResolutionError = error{
     MappingNotFound,
 };
 
-pub const Mapping = struct {
-    host_path: []const u8,
-    sandbox_path: []const u8,
-};
-
-pub fn sortMappingByHostPathDesc(_: void, lhs: Mapping, rhs: Mapping) bool {
+pub fn sortMountByHostPathDesc(_: void, lhs: Mount, rhs: Mount) bool {
     return lhs.host_path.len >= rhs.host_path.len;
 }
 
-pub fn sortMappingBySandboxPathDesc(_: void, lhs: Mapping, rhs: Mapping) bool {
+pub fn sortMountBySandboxPathDesc(_: void, lhs: Mount, rhs: Mount) bool {
     return lhs.sandbox_path.len >= rhs.sandbox_path.len;
 }
 
-mappings_sorted_by_host_path_desc: []Mapping,
-mappings_sorted_by_sandbox_path_desc: []Mapping,
+mounts_sorted_by_host_path_desc: []Mount,
+mounts_sorted_by_sandbox_path_desc: []Mount,
 allocator: std.mem.Allocator,
 
-pub fn init(allocator: std.mem.Allocator, mappings: []const Mapping) !@This() {
+pub fn init(allocator: std.mem.Allocator, mounts: []const Mount) !@This() {
     // TODO remove trailing '/'
-    const mappings_sorted_by_host_path_desc = try allocator.dupe(Mapping, mappings);
-    std.mem.sort(Mapping, mappings_sorted_by_host_path_desc, {}, sortMappingByHostPathDesc);
-    const mappings_sorted_by_sandbox_path_desc = try allocator.dupe(Mapping, mappings);
-    std.mem.sort(Mapping, mappings_sorted_by_sandbox_path_desc, {}, sortMappingBySandboxPathDesc);
+    const mounts_sorted_by_host_path_desc = try allocator.dupe(Mount, mounts);
+    std.mem.sort(Mount, mounts_sorted_by_host_path_desc, {}, sortMountByHostPathDesc);
+    const mounts_sorted_by_sandbox_path_desc = try allocator.dupe(Mount, mounts);
+    std.mem.sort(Mount, mounts_sorted_by_sandbox_path_desc, {}, sortMountBySandboxPathDesc);
 
-    return .{ .allocator = allocator, .mappings_sorted_by_host_path_desc = mappings_sorted_by_host_path_desc, .mappings_sorted_by_sandbox_path_desc = mappings_sorted_by_sandbox_path_desc };
+    return .{ .allocator = allocator, .mounts_sorted_by_host_path_desc = mounts_sorted_by_host_path_desc, .mounts_sorted_by_sandbox_path_desc = mounts_sorted_by_sandbox_path_desc };
 }
 
 pub fn deinit(self: @This()) void {
-    self.allocator.free(self.mappings_sorted_by_host_path_desc);
-    self.allocator.free(self.mappings_sorted_by_sandbox_path_desc);
+    self.allocator.free(self.mounts_sorted_by_host_path_desc);
+    self.allocator.free(self.mounts_sorted_by_sandbox_path_desc);
 }
 
 pub const ResolutionOptions = struct {
@@ -54,13 +50,13 @@ pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, co
     // TODO handle relative paths
     const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
     defer allocator.free(realpath);
-    for (self.mappings_sorted_by_sandbox_path_desc) |mapping| {
-        std.debug.print("mapping '{s}' to '{s}'\n", .{ realpath, mapping.sandbox_path });
-        if (mapping.sandbox_path.len > realpath.len)
+    for (self.mounts_sorted_by_sandbox_path_desc) |mount| {
+        std.debug.print("mount '{s}' to '{s}'\n", .{ realpath, mount.sandbox_path });
+        if (mount.sandbox_path.len > realpath.len)
             continue;
-        if (!std.mem.startsWith(u8, realpath, mapping.sandbox_path))
+        if (!std.mem.startsWith(u8, realpath, mount.sandbox_path))
             continue;
-        return try concatPaths(allocator, mapping.host_path, realpath[mapping.sandbox_path.len..], opts.sentinel);
+        return try concatPaths(allocator, mount.host_path, realpath[mount.sandbox_path.len..], opts.sentinel);
     }
     return ResolutionError.MappingNotFound;
 }
@@ -68,19 +64,19 @@ pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, co
 pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, comptime opts: ResolutionOptions) ![]const u8 {
     const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
     defer allocator.free(realpath);
-    for (self.mappings_sorted_by_host_path_desc) |mapping| {
-        std.debug.print("reverse mapping '{s}' to '{s}'\n", .{ realpath, mapping.host_path });
-        if (mapping.host_path.len > realpath.len)
+    for (self.mounts_sorted_by_host_path_desc) |mount| {
+        std.debug.print("reverse mount '{s}' to '{s}'\n", .{ realpath, mount.host_path });
+        if (mount.host_path.len > realpath.len)
             continue;
-        if (!std.mem.startsWith(u8, realpath, mapping.host_path))
+        if (!std.mem.startsWith(u8, realpath, mount.host_path))
             continue;
-        return try concatPaths(allocator, mapping.sandbox_path, realpath[mapping.host_path.len..], opts.sentinel);
+        return try concatPaths(allocator, mount.sandbox_path, realpath[mount.host_path.len..], opts.sentinel);
     }
     return ResolutionError.MappingNotFound;
 }
 
-test "Self::resolve works with a single mapping" {
-    const test_resolver = try init(std.testing.allocator, &[_]Mapping{
+test "Self::resolve works with a single mount" {
+    const test_resolver = try init(std.testing.allocator, &[_]Mount{
         .{ .sandbox_path = "/foo", .host_path = "/bar" },
     });
     defer test_resolver.deinit();
@@ -91,8 +87,8 @@ test "Self::resolve works with a single mapping" {
     try std.testing.expectEqualStrings("/bar/file.txt", remapped_path);
 }
 
-test "Self::resolve uses the longest match when multiple mappings exist" {
-    const test_resolver = try init(std.testing.allocator, &[_]Mapping{
+test "Self::resolve uses the longest match when multiple mounts exist" {
+    const test_resolver = try init(std.testing.allocator, &[_]Mount{
         .{ .sandbox_path = "/foo/bar/baz", .host_path = "/expected" },
         .{ .sandbox_path = "/foo/bar", .host_path = "/unexpected" },
     });
@@ -104,24 +100,24 @@ test "Self::resolve uses the longest match when multiple mappings exist" {
     try std.testing.expectEqualStrings("/expected/file.txt", remapped_path);
 }
 
-test "Self::resolve returns error when no mappings exist" {
-    const test_resolver = try init(std.testing.allocator, &[_]Mapping{});
+test "Self::resolve returns error when no mounts exist" {
+    const test_resolver = try init(std.testing.allocator, &[_]Mount{});
     defer test_resolver.deinit();
 
-    try std.testing.expectError(ResolutionError.MappingNotFound, test_resolver.resolve(std.testing.allocator, "/foo/bar/baz/file.txt", .{}));
+    try std.testing.expectError(ResolutionError.MountNotFound, test_resolver.resolve(std.testing.allocator, "/foo/bar/baz/file.txt", .{}));
 }
 
-test "Self::resolve returns error when no mappings matches" {
-    const test_resolver = try init(std.testing.allocator, &[_]Mapping{
+test "Self::resolve returns error when no mounts matches" {
+    const test_resolver = try init(std.testing.allocator, &[_]Mount{
         .{ .sandbox_path = "/foo", .host_path = "/bar" },
     });
     defer test_resolver.deinit();
 
-    try std.testing.expectError(ResolutionError.MappingNotFound, test_resolver.resolve(std.testing.allocator, "/baz/file.txt", .{}));
+    try std.testing.expectError(ResolutionError.MountNotFound, test_resolver.resolve(std.testing.allocator, "/baz/file.txt", .{}));
 }
 
-test "Self::reverse_resolve works with a single mapping" {
-    const test_resolver = try init(std.testing.allocator, &[_]Mapping{
+test "Self::reverse_resolve works with a single mount" {
+    const test_resolver = try init(std.testing.allocator, &[_]Mount{
         .{ .sandbox_path = "/foo", .host_path = "/bar" },
     });
     defer test_resolver.deinit();
@@ -132,8 +128,8 @@ test "Self::reverse_resolve works with a single mapping" {
     try std.testing.expectEqualStrings("/foo/file.txt", remapped_path);
 }
 
-test "Self::reverse_resolve uses the longest match when multiple mappings exist" {
-    const test_resolver = try init(std.testing.allocator, &[_]Mapping{
+test "Self::reverse_resolve uses the longest match when multiple mounts exist" {
+    const test_resolver = try init(std.testing.allocator, &[_]Mount{
         .{ .host_path = "/foo/bar/baz", .sandbox_path = "/expected" },
         .{ .host_path = "/foo/bar", .sandbox_path = "/unexpected" },
     });
@@ -145,18 +141,18 @@ test "Self::reverse_resolve uses the longest match when multiple mappings exist"
     try std.testing.expectEqualStrings("/expected/file.txt", remapped_path);
 }
 
-test "Self::reverse_resolve returns error when no mappings exist" {
-    const test_resolver = try init(std.testing.allocator, &[_]Mapping{});
+test "Self::reverse_resolve returns error when no mounts exist" {
+    const test_resolver = try init(std.testing.allocator, &[_]Mount{});
     defer test_resolver.deinit();
 
-    try std.testing.expectError(ResolutionError.MappingNotFound, test_resolver.reverse_resolve(std.testing.allocator, "/foo/bar/baz/file.txt", .{}));
+    try std.testing.expectError(ResolutionError.MountNotFound, test_resolver.reverse_resolve(std.testing.allocator, "/foo/bar/baz/file.txt", .{}));
 }
 
-test "Self::reverse_resolve returns error when no mappings matches" {
-    const test_resolver = try init(std.testing.allocator, &[_]Mapping{
+test "Self::reverse_resolve returns error when no mounts matches" {
+    const test_resolver = try init(std.testing.allocator, &[_]Mount{
         .{ .host_path = "/foo", .sandbox_path = "/bar" },
     });
     defer test_resolver.deinit();
 
-    try std.testing.expectError(ResolutionError.MappingNotFound, test_resolver.reverse_resolve(std.testing.allocator, "/baz/file.txt", .{}));
+    try std.testing.expectError(ResolutionError.MountNotFound, test_resolver.reverse_resolve(std.testing.allocator, "/baz/file.txt", .{}));
 }
