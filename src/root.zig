@@ -23,6 +23,7 @@ comptime {
 const INTERPOSED_SYMBOLS = [_]Interpose{
     .{ .original = libsystem.getcwd, .replacement = cwd.getcwd },
     .{ .original = libsystem.open, .replacement = fs.open },
+    .{ .original = libsystem.openat, .replacement = fs.openat },
     .{ .original = libsystem.creat, .replacement = fs.creat },
     .{ .original = libsystem.stat, .replacement = fs.stat },
     .{ .original = libsystem.chmod, .replacement = fs.chmod },
@@ -51,7 +52,7 @@ fn init() callconv(.C) void {
     // TODO: config should support exclusion of libraries from sandbox
     DEFAULT_PATH_RESOLVER = PathResolver.init(GPA.allocator(), &[_]PathResolver.Mapping{
         .{ .host_path = "/Users/m1/src/macaroni", .sandbox_path = "/" },
-        .{ .host_path = "/opt/homebrew/bin/", .sandbox_path = "/bin" },
+        .{ .host_path = "/opt/homebrew/bin", .sandbox_path = "/bin" },
     }) catch unreachable;
 }
 

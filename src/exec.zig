@@ -2,7 +2,7 @@ const std = @import("std");
 const libsystem = @import("./libsystem.zig");
 const PathResolver = @import("./PathResolver.zig");
 
-// TODO implement popen and system once you have a strategy for SIP binaries since they both use /bin/sh
+// TODO implement popen and system
 pub fn exec(pathResolver: *PathResolver, allocator: *std.mem.Allocator) type {
     return struct {
         var execPathResolver = pathResolver;

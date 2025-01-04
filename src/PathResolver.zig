@@ -55,6 +55,7 @@ pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, co
     const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
     defer allocator.free(realpath);
     for (self.mappings_sorted_by_sandbox_path_desc) |mapping| {
+        std.debug.print("mapping '{s}' to '{s}'\n", .{ realpath, mapping.sandbox_path });
         if (mapping.sandbox_path.len > realpath.len)
             continue;
         if (!std.mem.startsWith(u8, realpath, mapping.sandbox_path))
@@ -68,6 +69,7 @@ pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []cons
     const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
     defer allocator.free(realpath);
     for (self.mappings_sorted_by_host_path_desc) |mapping| {
+        std.debug.print("reverse mapping '{s}' to '{s}'\n", .{ realpath, mapping.host_path });
         if (mapping.host_path.len > realpath.len)
             continue;
         if (!std.mem.startsWith(u8, realpath, mapping.host_path))
