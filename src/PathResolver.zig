@@ -40,19 +40,23 @@ pub const ResolutionOptions = struct {
     sentinel: ?u8 = null,
 };
 
+// TODO: add tests
+fn concatPaths(allocator: std.mem.Allocator, first: []const u8, second: []const u8, comptime sentinel: ?u8) ![]u8 {
+    const parts = &[_][]const u8{
+        first,
+        if (std.mem.endsWith(u8, first, "/") or std.mem.startsWith(u8, second, "/")) "" else "/",
+        second,
+    };
+    return try std.mem.concatMaybeSentinel(allocator, u8, parts, sentinel);
+}
+
 pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, comptime opts: ResolutionOptions) ![]const u8 {
     for (self.mappings_sorted_by_sandbox_path_desc) |mapping| {
-        std.debug.print("mapping '{s}' to '{s}'\n", .{ path, mapping.sandbox_path });
         if (mapping.sandbox_path.len > path.len)
             continue;
         if (!std.mem.startsWith(u8, path, mapping.sandbox_path))
             continue;
-        const parts = &[_][]const u8{
-            mapping.host_path,
-            if (std.mem.endsWith(u8, mapping.host_path, "/")) "" else "/",
-            path[mapping.sandbox_path.len..],
-        };
-        return try std.mem.concatMaybeSentinel(allocator, u8, parts, opts.sentinel);
+        return try concatPaths(allocator, mapping.host_path, path[mapping.sandbox_path.len..], opts.sentinel);
     }
     return ResolutionError.MappingNotFound;
 }
@@ -63,12 +67,7 @@ pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []cons
             continue;
         if (!std.mem.startsWith(u8, path, mapping.host_path))
             continue;
-        const parts = &[_][]const u8{
-            mapping.sandbox_path,
-            if (std.mem.endsWith(u8, mapping.host_path, "/")) "" else "/",
-            path[mapping.host_path.len..],
-        };
-        return try std.mem.concatMaybeSentinel(allocator, u8, parts, opts.sentinel);
+        return try concatPaths(allocator, mapping.sandbox_path, path[mapping.host_path.len..], opts.sentinel);
     }
     return ResolutionError.MappingNotFound;
 }
@@ -152,5 +151,5 @@ test "Self::reverse_resolve returns error when no mappings matches" {
     });
     defer test_resolver.deinit();
 
-    try std.testing.expectError(ResolutionError.MappingNotFound, test_resolver.reverse_resolve(std.testing.allocator, "/baz/file.txt"));
+    try std.testing.expectError(ResolutionError.MappingNotFound, test_resolver.reverse_resolve(std.testing.allocator, "/baz/file.txt", .{}));
 }
