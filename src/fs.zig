@@ -7,7 +7,7 @@ fn resolveRelative(allocator: std.mem.Allocator, path_resolver: *PathResolver, f
     const parent_host_path = try utils.resolveFd(allocator, fd);
     defer allocator.free(parent_host_path);
 
-    const parent = try path_resolver.reverse_resolve(allocator, parent_host_path);
+    const parent = try path_resolver.reverse_resolve(allocator, parent_host_path, .{ .null_terminated = false });
     defer allocator.free(parent);
 
     return try std.fs.path.resolve(allocator, &[_][]const u8{ parent, std.mem.span(path) });
@@ -17,7 +17,7 @@ fn resolveRelative(allocator: std.mem.Allocator, path_resolver: *PathResolver, f
 pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
     return struct {
         pub fn open(path: [*c]const u8, oflag: c_int, ...) callconv(.C) c_int {
-            const remapped_path = path_resolver.resolve(allocator.*, std.mem.span(path)) catch {
+            const remapped_path = path_resolver.resolve(allocator.*, std.mem.span(path), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
@@ -34,7 +34,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
             };
             defer allocator.free(relative_path);
 
-            const remapped_path = path_resolver.resolve(allocator.*, relative_path) catch {
+            const remapped_path = path_resolver.resolve(allocator.*, relative_path, .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
@@ -46,7 +46,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
         }
 
         pub fn creat(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_int {
-            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path)) catch {
+            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
@@ -55,7 +55,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
         }
 
         pub fn stat(path: [*c]const u8, buf: *anyopaque) callconv(.C) c_int {
-            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path)) catch {
+            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
@@ -64,7 +64,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
         }
 
         pub fn chmod(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_int {
-            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path)) catch {
+            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
@@ -73,7 +73,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
         }
 
         pub fn chown(path: [*c]const u8, owner: c_int, group: c_int) callconv(.C) c_int {
-            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path)) catch {
+            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
@@ -82,7 +82,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
         }
 
         pub fn utimes(path: [*c]const u8, times: *anyopaque) callconv(.C) c_int {
-            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path)) catch {
+            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
@@ -91,7 +91,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
         }
 
         pub fn mkdir(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_int {
-            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path)) catch {
+            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
@@ -100,7 +100,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
         }
 
         pub fn rmdir(path: [*c]const u8) callconv(.C) c_int {
-            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path)) catch {
+            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return -1;
             };
@@ -109,7 +109,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
         }
 
         pub fn opendir(path: [*c]const u8) callconv(.C) ?*anyopaque {
-            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path)) catch {
+            const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return null;
             };
@@ -123,7 +123,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
                 return null;
             };
             defer allocator.free(host_cwd);
-            const resolved_path = path_resolver.reverse_resolve(allocator.*, host_cwd) catch {
+            const resolved_path = path_resolver.reverse_resolve(allocator.*, host_cwd, .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
                 return null;
             };

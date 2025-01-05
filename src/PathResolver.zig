@@ -33,21 +33,28 @@ pub fn deinit(self: @This()) void {
     self.allocator.free(self.mounts_sorted_by_sandbox_path_desc);
 }
 
-pub const ResolutionOptions = struct {
-    sentinel: ?u8 = null,
-};
-
-fn concatPaths(allocator: std.mem.Allocator, first: []const u8, second: []const u8) ![]u8 {
-    return std.fs.path.join(allocator, &[_][]const u8{ first, second });
+fn concatPaths(allocator: std.mem.Allocator, first: []const u8, second: []const u8, comptime null_terminated: bool) !MaybeNullTerminatedSlice(u8, null_terminated) {
+    const p = try std.fs.path.join(allocator, &[_][]const u8{ first, second });
+    if (!null_terminated) {
+        return p;
+    }
+    defer allocator.free(p);
+    return allocator.dupeZ(u8, p);
 }
 
-pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
+fn MaybeNullTerminatedSlice(T: type, null_terminated: bool) type {
+    if (null_terminated)
+        return [:0]const T;
+    return []const T;
+}
+
+pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, comptime opts: struct { null_terminated: bool = true }) !MaybeNullTerminatedSlice(u8, opts.null_terminated) {
     const realpath = try blk: {
         if (std.mem.startsWith(u8, path, "/"))
             break :blk std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
         const host_cwd = try utils.cwdPath(allocator);
         defer allocator.free(host_cwd);
-        const sandbox_cwd = try self.reverse_resolve(allocator, host_cwd);
+        const sandbox_cwd = try self.reverse_resolve(allocator, host_cwd, .{});
         defer allocator.free(sandbox_cwd);
         break :blk std.fs.path.resolvePosix(allocator, &[_][]const u8{ sandbox_cwd, path });
     };
@@ -57,13 +64,13 @@ pub fn resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8) ![
             continue;
         if (!std.mem.startsWith(u8, realpath, mount.sandbox_path))
             continue;
-        const resolved_path = try concatPaths(allocator, mount.host_path, realpath[mount.sandbox_path.len..]);
+        const resolved_path = try concatPaths(allocator, mount.host_path, realpath[mount.sandbox_path.len..], opts.null_terminated);
         return resolved_path;
     }
     return ResolutionError.MappingNotFound;
 }
 
-pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8) ![]const u8 {
+pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []const u8, comptime opts: struct { null_terminated: bool = true }) !MaybeNullTerminatedSlice(u8, opts.null_terminated) {
     const realpath = try std.fs.path.resolvePosix(allocator, &[_][]const u8{path});
     defer allocator.free(realpath);
     for (self.mounts_sorted_by_host_path_desc) |mount| {
@@ -71,7 +78,7 @@ pub fn reverse_resolve(self: @This(), allocator: std.mem.Allocator, path: []cons
             continue;
         if (!std.mem.startsWith(u8, realpath, mount.host_path))
             continue;
-        return concatPaths(allocator, mount.sandbox_path, realpath[mount.host_path.len..]);
+        return concatPaths(allocator, mount.sandbox_path, realpath[mount.host_path.len..], opts.null_terminated);
     }
     return ResolutionError.MappingNotFound;
 }
