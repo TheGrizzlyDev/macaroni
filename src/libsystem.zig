@@ -18,3 +18,6 @@ pub extern fn mkdir(path: [*c]const u8, mode: std.posix.mode_t) callconv(.C) c_i
 pub extern fn rmdir(path: [*c]const u8) callconv(.C) c_int;
 pub extern fn opendir(path: [*c]const u8) callconv(.C) ?*anyopaque;
 pub extern fn execve(path: [*c]const u8, argv: [*c][*c]const u8, envp: [*c][*c]const u8) callconv(.C) c_int;
+pub extern fn mktemp(template: [*c]const u8) callconv(.C) [*c]const u8;
+pub extern fn mkstemp(template: [*c]const u8) callconv(.C) c_int;
+pub extern fn mkdtemp(template: [*c]const u8) callconv(.C) c_int;

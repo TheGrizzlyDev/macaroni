@@ -32,6 +32,9 @@ const INTERPOSED_SYMBOLS = [_]Interpose{
     .{ .original = libsystem.mkdir, .replacement = fs.mkdir },
     .{ .original = libsystem.rmdir, .replacement = fs.rmdir },
     .{ .original = libsystem.opendir, .replacement = fs.opendir },
+    .{ .original = libsystem.mktemp, .replacement = fs.mktemp },
+    .{ .original = libsystem.mkstemp, .replacement = fs.mkstemp },
+    .{ .original = libsystem.mkdtemp, .replacement = fs.mkdtemp },
     .{ .original = libsystem.execve, .replacement = exec.execve },
 };
 

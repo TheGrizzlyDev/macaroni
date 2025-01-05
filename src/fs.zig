@@ -54,6 +54,33 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
             return libsystem.creat(@ptrCast(resolved_path), mode);
         }
 
+        pub fn mktemp(template: [*c]const u8) callconv(.C) [*c]const u8 {
+            const resolved_template = path_resolver.resolve(allocator.*, std.mem.span(template), .{}) catch {
+                libsystem.setErrno(std.posix.E.NOENT);
+                return -1;
+            };
+            defer allocator.free(resolved_template);
+            return libsystem.mktemp(@ptrCast(resolved_template));
+        }
+
+        pub fn mkstemp(template: [*c]const u8) callconv(.C) c_int {
+            const resolved_template = path_resolver.resolve(allocator.*, std.mem.span(template), .{}) catch {
+                libsystem.setErrno(std.posix.E.NOENT);
+                return -1;
+            };
+            defer allocator.free(resolved_template);
+            return libsystem.mkstemp(@ptrCast(resolved_template));
+        }
+
+        pub fn mkdtemp(template: [*c]const u8) callconv(.C) [*c]const u8 {
+            const resolved_template = path_resolver.resolve(allocator.*, std.mem.span(template), .{}) catch {
+                libsystem.setErrno(std.posix.E.NOENT);
+                return -1;
+            };
+            defer allocator.free(resolved_template);
+            return libsystem.mkdtemp(@ptrCast(resolved_template));
+        }
+
         pub fn stat(path: [*c]const u8, buf: *anyopaque) callconv(.C) c_int {
             const resolved_path = path_resolver.resolve(allocator.*, std.mem.span(path), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
