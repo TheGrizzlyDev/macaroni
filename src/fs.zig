@@ -57,7 +57,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
         pub fn mktemp(template: [*c]const u8) callconv(.C) [*c]const u8 {
             const resolved_template = path_resolver.resolve(allocator.*, std.mem.span(template), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
-                return -1;
+                return null;
             };
             defer allocator.free(resolved_template);
             return libsystem.mktemp(@ptrCast(resolved_template));
@@ -75,7 +75,7 @@ pub fn fs(path_resolver: *PathResolver, allocator: *std.mem.Allocator) type {
         pub fn mkdtemp(template: [*c]const u8) callconv(.C) [*c]const u8 {
             const resolved_template = path_resolver.resolve(allocator.*, std.mem.span(template), .{}) catch {
                 libsystem.setErrno(std.posix.E.NOENT);
-                return -1;
+                return null;
             };
             defer allocator.free(resolved_template);
             return libsystem.mkdtemp(@ptrCast(resolved_template));
