@@ -112,7 +112,7 @@ test "Self::resolve returns error when no mounts exist" {
     const test_resolver = try init(std.testing.allocator, &[_]Mount{});
     defer test_resolver.deinit();
 
-    try std.testing.expectError(ResolutionError.MountNotFound, test_resolver.resolve(std.testing.allocator, "/foo/bar/baz/file.txt", .{}));
+    try std.testing.expectError(ResolutionError.MappingNotFound, test_resolver.resolve(std.testing.allocator, "/foo/bar/baz/file.txt", .{}));
 }
 
 test "Self::resolve returns error when no mounts matches" {
@@ -121,7 +121,7 @@ test "Self::resolve returns error when no mounts matches" {
     });
     defer test_resolver.deinit();
 
-    try std.testing.expectError(ResolutionError.MountNotFound, test_resolver.resolve(std.testing.allocator, "/baz/file.txt", .{}));
+    try std.testing.expectError(ResolutionError.MappingNotFound, test_resolver.resolve(std.testing.allocator, "/baz/file.txt", .{}));
 }
 
 test "Self::reverse_resolve works with a single mount" {
@@ -153,7 +153,7 @@ test "Self::reverse_resolve returns error when no mounts exist" {
     const test_resolver = try init(std.testing.allocator, &[_]Mount{});
     defer test_resolver.deinit();
 
-    try std.testing.expectError(ResolutionError.MountNotFound, test_resolver.reverse_resolve(std.testing.allocator, "/foo/bar/baz/file.txt", .{}));
+    try std.testing.expectError(ResolutionError.MappingNotFound, test_resolver.reverse_resolve(std.testing.allocator, "/foo/bar/baz/file.txt", .{}));
 }
 
 test "Self::reverse_resolve returns error when no mounts matches" {
@@ -162,5 +162,5 @@ test "Self::reverse_resolve returns error when no mounts matches" {
     });
     defer test_resolver.deinit();
 
-    try std.testing.expectError(ResolutionError.MountNotFound, test_resolver.reverse_resolve(std.testing.allocator, "/baz/file.txt", .{}));
+    try std.testing.expectError(ResolutionError.MappingNotFound, test_resolver.reverse_resolve(std.testing.allocator, "/baz/file.txt", .{}));
 }
