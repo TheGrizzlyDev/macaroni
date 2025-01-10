@@ -8,7 +8,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const lib_arm64 = b.addSharedLibrary(.{
-        .name = "macaroni",
+        .name = "macaroni_arm64",
         .root_source_file = b.path("src/root.zig"),
         .target = target_arm64,
         .optimize = optimize,
@@ -19,7 +19,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const lib_amd64 = b.addSharedLibrary(.{
-        .name = "macaroni",
+        .name = "macaroni_amd64",
         .root_source_file = b.path("src/root.zig"),
         .target = target_amd64,
         .optimize = optimize,
@@ -27,11 +27,11 @@ pub fn build(b: *std.Build) void {
 
     const run_lipo = b.addSystemCommand(&.{"lipo"});
     run_lipo.addArgs(&.{ "-create", "-output" });
-    const lib = run_lipo.addOutputFileArg("libsystem.dylib");
+    const lib = run_lipo.addOutputFileArg("libmacaroni.dylib");
     run_lipo.addArtifactArg(lib_amd64);
     run_lipo.addArtifactArg(lib_arm64);
 
-    b.getInstallStep().dependOn(&b.addInstallBinFile(lib, "libsystem.dylib").step);
+    b.getInstallStep().dependOn(&b.addInstallLibFile(lib, "libmacaroni.dylib").step);
 
     const lib_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/root.zig"),
